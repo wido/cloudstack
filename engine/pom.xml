@@ -60,6 +60,7 @@
         <module>storage/volume</module>
         <module>userdata/cloud-init</module>
         <module>userdata</module>
+        <module>dns</module>
     </modules>
     <profiles>
         <profile>
