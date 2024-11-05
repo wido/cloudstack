@@ -11,6 +11,8 @@ public interface Zone extends ControlledEntity, Identity, InternalIdentity {
 
     State getState();
 
+    void setName(final String name);
+
     public enum State {
         Allocated, Created, Destroyed;
         @Override

@@ -1394,6 +1394,16 @@ DefaultMaxAccountProjects(
             ConfigKey.Kind.Select,
             "all,pod"),
 
+    DNSProvider(
+            "Advanced",
+            ManagementServer.class,
+            String.class,
+            "network.dns.provider",
+            "",
+            "This parameter accepts a String and define which driver should be loaded as DNS provider. Only one provider can be used for a CloudStack deployment",
+            null
+    ),
+
     ClusterMessageTimeOutSeconds(
             "Advanced",
             ManagementServer.class,
