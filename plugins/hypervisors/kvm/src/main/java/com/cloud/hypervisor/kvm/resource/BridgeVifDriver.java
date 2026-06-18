@@ -48,6 +48,7 @@ public class BridgeVifDriver extends VifDriverBase {
     private final Object _vnetBridgeMonitor = new Object();
     private String _modifyVlanPath;
     private String _modifyVxlanPath;
+    private String _macIpScriptPath;
     private String _controlCidr = NetUtils.getLinkLocalCIDR();
     private Long libvirtVersion;
 
@@ -79,6 +80,12 @@ public class BridgeVifDriver extends VifDriverBase {
         _modifyVxlanPath = Script.findScript(networkScriptsDir, "modifyvxlan.sh");
         if (_modifyVxlanPath == null) {
             throw new ConfigurationException("Unable to find modifyvxlan.sh");
+        }
+
+        String macIpScript = AgentPropertiesFileHandler.getPropertyValue(AgentProperties.VM_NETWORK_MACIP_SCRIPT);
+        if (macIpScript != null && !macIpScript.isEmpty()) {
+            _macIpScriptPath = macIpScript;
+            logger.info("VM network MAC/IP script configured: {}", _macIpScriptPath);
         }
 
         libvirtVersion = (Long) params.get("libvirtVersion");
@@ -276,11 +283,14 @@ public class BridgeVifDriver extends VifDriverBase {
             intf.setPxeDisable(true);
         }
 
+        executeMacIpScript("add", intf.getBrName(), nic.getMac(), nic.getIp(), nic.getIp6Address());
+
         return intf;
     }
 
     @Override
     public void unplug(LibvirtVMDef.InterfaceDef iface, boolean deleteBr) {
+        executeMacIpScript("delete", iface.getBrName(), iface.getMacAddress(), null, null);
         deleteVnetBr(iface.getBrName(), deleteBr);
     }
 
@@ -397,6 +407,26 @@ public class BridgeVifDriver extends VifDriverBase {
             if (result != null) {
                 logger.debug("Delete bridge " + brName + " failed: " + result);
             }
+        }
+    }
+
+    private void executeMacIpScript(String op, String brName, String mac, String ipv4, String ipv6) {
+        if (_macIpScriptPath == null || mac == null || brName == null) {
+            return;
+        }
+        final Script command = new Script(_macIpScriptPath, _timeout, logger);
+        command.add("-o", op);
+        command.add("-b", brName);
+        command.add("-m", mac);
+        if (ipv4 != null && !ipv4.isEmpty()) {
+            command.add("-4", ipv4);
+        }
+        if (ipv6 != null && !ipv6.isEmpty()) {
+            command.add("-6", ipv6);
+        }
+        final String result = command.execute();
+        if (result != null) {
+            logger.warn("MAC/IP script returned error for {} on {}: {}", op, mac, result);
         }
     }
 
