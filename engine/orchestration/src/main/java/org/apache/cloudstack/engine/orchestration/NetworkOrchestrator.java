@@ -4721,7 +4721,7 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
             }
             final String address = profile.getIPv4Address();
             if (network.getTrafficType() == Networks.TrafficType.Control) {
-                accessDetails.put(NetworkElementCommand.ROUTER_IP, address);
+                accessDetails.put(NetworkElementCommand.ROUTER_IP, VirtualMachineManager.getControlAddress(vm.getHypervisorType(), address, profile.getMacAddress()));
             }
             if (network.getTrafficType() == Networks.TrafficType.Guest) {
                 accessDetails.put(NetworkElementCommand.ROUTER_GUEST_IP, address);

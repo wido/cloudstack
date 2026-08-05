@@ -2438,11 +2438,12 @@ Configurable, StateListener<VirtualMachine.State, VirtualMachine.Event, VirtualM
 
     protected void finalizeSshAndVersionAndNetworkUsageOnStart(final Commands cmds, final VirtualMachineProfile profile, final DomainRouterVO router, final NicProfile controlNic) {
         final DomainRouterVO vr = _routerDao.findById(profile.getId());
-        cmds.addCommand("checkSsh", new CheckSshCommand(profile.getInstanceName(), controlNic.getIPv4Address(), 3922));
+        final String controlAddress = VirtualMachineManager.getControlAddress(profile.getHypervisorType(), controlNic.getIPv4Address(), controlNic.getMacAddress());
+        cmds.addCommand("checkSsh", new CheckSshCommand(profile.getInstanceName(), controlAddress, 3922));
 
         // Update router template/scripts version
         final GetDomRVersionCmd command = new GetDomRVersionCmd();
-        command.setAccessDetail(NetworkElementCommand.ROUTER_IP, controlNic.getIPv4Address());
+        command.setAccessDetail(NetworkElementCommand.ROUTER_IP, controlAddress);
         command.setAccessDetail(NetworkElementCommand.ROUTER_NAME, router.getInstanceName());
         cmds.addCommand("getDomRVersion", command);
 

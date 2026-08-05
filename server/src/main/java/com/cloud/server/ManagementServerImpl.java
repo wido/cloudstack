@@ -5894,24 +5894,18 @@ public class ManagementServerImpl extends MutualExclusiveIdsManagerBase implemen
 
 
     private String getControlIp(final long systemVmId) {
-        String controlIpAddress = null;
+        final VMInstanceVO systemVM = _vmInstanceDao.findById(systemVmId);
         final List<NicVO> nics = nicDao.listByVmId(systemVmId);
         for (final NicVO n : nics) {
             final NetworkVO nc = networkDao.findById(n.getNetworkId());
             if (nc != null && nc.getTrafficType() == Networks.TrafficType.Control) {
-                controlIpAddress = n.getIPv4Address();
                 // router will have only one control IP
-                break;
+                return VirtualMachineManager.getControlAddress(systemVM.getHypervisorType(), n.getIPv4Address(), n.getMacAddress());
             }
         }
 
-        if (controlIpAddress == null) {
-            logger.warn(String.format("Unable to find systemVm's control ip in its attached NICs!. systemVmId: %s", systemVmId));
-            VMInstanceVO systemVM = _vmInstanceDao.findById(systemVmId);
-            return systemVM.getPrivateIpAddress();
-        }
-
-        return controlIpAddress;
+        logger.warn(String.format("Unable to find systemVm's control ip in its attached NICs!. systemVmId: %s", systemVmId));
+        return VirtualMachineManager.getControlAddress(systemVM.getHypervisorType(), systemVM.getPrivateIpAddress(), systemVM.getPrivateMacAddress());
     }
 
     public Pair<Boolean, String> updateSystemVM(VMInstanceVO systemVM, boolean forced) {

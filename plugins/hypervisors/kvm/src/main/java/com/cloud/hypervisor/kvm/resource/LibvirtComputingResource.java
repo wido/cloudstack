@@ -650,6 +650,20 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
 
     protected List<DisconnectHook> _disconnectHooks = new CopyOnWriteArrayList<>();
 
+    /**
+     * Returns the address to use to SSH into a system VM. With systemvm.control.ipv6
+     * enabled the Management Server sends the IPv6 link-local address of the control
+     * NIC, which needs to be scoped to the control bridge to be usable on the host.
+     * An address which already carries a scope is not valid IPv6 and passes through
+     * unchanged, so the scope is only appended once.
+     */
+    public String getSystemVmSshIp(final String ip) {
+        if (NetUtils.isValidIp6(ip)) {
+            return ip + "%" + linkLocalBridgeName;
+        }
+        return ip;
+    }
+
     @Override
     public ExecutionResult executeInVR(final String routerIp, final String script, final String args) {
         return executeInVR(routerIp, script, args, timeout);
@@ -660,7 +674,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         final Script command = new Script(routerProxyPath, timeout, LOGGER);
         final AllLinesParser parser = new AllLinesParser();
         command.add(script);
-        command.add(routerIp);
+        command.add(getSystemVmSshIp(routerIp));
         if (args != null) {
             command.add(args);
         }
@@ -677,12 +691,13 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     @Override
     public ExecutionResult createFileInVR(final String routerIp, final String path, final String filename, final String content) {
         final File permKey = new File("/root/.ssh/id_rsa.cloud");
+        final String accessIp = getSystemVmSshIp(routerIp);
         boolean success = true;
-        String details = "Creating file in VR, with ip: " + routerIp + ", file: " + filename;
+        String details = "Creating file in VR, with ip: " + accessIp + ", file: " + filename;
         LOGGER.debug(details);
 
         try {
-            SshHelper.scpTo(routerIp, 3922, "root", permKey, null, path, content.getBytes(), filename, null);
+            SshHelper.scpTo(accessIp, 3922, "root", permKey, null, path, content.getBytes(), filename, null);
         } catch (final Exception e) {
             LOGGER.warn("Failed to create file " + path + filename + " in VR " + routerIp, e);
             details = e.getMessage();
@@ -2896,7 +2911,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     public String networkUsage(final String privateIpAddress, final String option, final String vif, String publicIp) {
         final Script getUsage = new Script(routerProxyPath, LOGGER);
         getUsage.add("netusage.sh");
-        getUsage.add(privateIpAddress);
+        getUsage.add(getSystemVmSshIp(privateIpAddress));
         if (option.equals("get")) {
             getUsage.add("-g");
             if (StringUtils.isNotEmpty(publicIp)) {
@@ -2942,7 +2957,7 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
     public String getHaproxyStats(final String privateIP, final String publicIp, final Integer port) {
         final Script getHaproxyStatsScript = new Script(routerProxyPath, LOGGER);
         getHaproxyStatsScript.add("get_haproxy_stats.sh");
-        getHaproxyStatsScript.add(privateIP);
+        getHaproxyStatsScript.add(getSystemVmSshIp(privateIP));
         getHaproxyStatsScript.add(publicIp);
         getHaproxyStatsScript.add(String.valueOf(port));
 

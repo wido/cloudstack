@@ -330,6 +330,24 @@ public class LibvirtComputingResourceTest {
      only 'speed' is set.
      */
     @Test
+    public void testGetSystemVmSshIpIpv4() {
+        libvirtComputingResourceSpy.linkLocalBridgeName = "cloud0";
+        assertEquals("169.254.1.15", libvirtComputingResourceSpy.getSystemVmSshIp("169.254.1.15"));
+    }
+
+    @Test
+    public void testGetSystemVmSshIpIpv6AddsScope() {
+        libvirtComputingResourceSpy.linkLocalBridgeName = "cloud0";
+        assertEquals("fe80::c00:a9ff:fefe:10f%cloud0", libvirtComputingResourceSpy.getSystemVmSshIp("fe80::c00:a9ff:fefe:10f"));
+    }
+
+    @Test
+    public void testGetSystemVmSshIpIpv6AlreadyScoped() {
+        libvirtComputingResourceSpy.linkLocalBridgeName = "cloud0";
+        assertEquals("fe80::c00:a9ff:fefe:10f%cloud0", libvirtComputingResourceSpy.getSystemVmSshIp("fe80::c00:a9ff:fefe:10f%cloud0"));
+    }
+
+    @Test
     public void testCreateVMFromSpecLegacy() {
         final int id = random.nextInt(65534);
         final String name = "test-instance-1";
@@ -2939,6 +2957,7 @@ public class LibvirtComputingResourceTest {
         final String privateIp = command.getIp();
         final int cmdPort = command.getPort();
 
+        when(libvirtComputingResourceMock.getSystemVmSshIp(privateIp)).thenReturn(privateIp);
         when(libvirtComputingResourceMock.getVirtRouterResource()).thenReturn(virtRouterResource);
         when(virtRouterResource.connect(privateIp, cmdPort)).thenReturn(true);
 
@@ -2965,6 +2984,7 @@ public class LibvirtComputingResourceTest {
         final String privateIp = command.getIp();
         final int cmdPort = command.getPort();
 
+        when(libvirtComputingResourceMock.getSystemVmSshIp(privateIp)).thenReturn(privateIp);
         when(libvirtComputingResourceMock.getVirtRouterResource()).thenReturn(virtRouterResource);
         when(virtRouterResource.connect(privateIp, cmdPort)).thenReturn(false);
 

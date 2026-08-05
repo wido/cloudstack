@@ -41,7 +41,7 @@ public class LibvirtPatchSystemVmCommandWrapper extends CommandWrapper<PatchSyst
 
     @Override
     public Answer execute(PatchSystemVmCommand cmd, LibvirtComputingResource serverResource) {
-        final String controlIp = cmd.getAccessDetail(NetworkElementCommand.ROUTER_IP);
+        final String controlIp = serverResource.getSystemVmSshIp(cmd.getAccessDetail(NetworkElementCommand.ROUTER_IP));
         final String sysVMName = cmd.getAccessDetail(NetworkElementCommand.ROUTER_NAME);
         ExecutionResult result;
         try {

@@ -35,7 +35,7 @@ public final class LibvirtCheckSshCommandWrapper extends CommandWrapper<CheckSsh
     @Override
     public Answer execute(final CheckSshCommand command, final LibvirtComputingResource libvirtComputingResource) {
         final String vmName = command.getName();
-        final String privateIp = command.getIp();
+        final String privateIp = libvirtComputingResource.getSystemVmSshIp(command.getIp());
         final int cmdPort = command.getPort();
 
         if (logger.isDebugEnabled()) {

@@ -1342,7 +1342,8 @@ public class SecondaryStorageManagerImpl extends ManagerBase implements Secondar
 
         controlNic = verifySshAccessOnManagementNicForSystemVm(profile, controlNic, managementNic);
 
-        CheckSshCommand check = new CheckSshCommand(profile.getInstanceName(), controlNic.getIPv4Address(), 3922);
+        CheckSshCommand check = new CheckSshCommand(profile.getInstanceName(),
+                VirtualMachineManager.getControlAddress(profile.getHypervisorType(), controlNic.getIPv4Address(), controlNic.getMacAddress()), 3922);
         cmds.addCommand("checkSsh", check);
 
         return true;

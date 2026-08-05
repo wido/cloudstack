@@ -41,7 +41,7 @@ public class LibvirtCopyToSecondaryStorageWrapper extends CommandWrapper<CopyToS
     public Answer execute(CopyToSecondaryStorageCommand command, LibvirtComputingResource libvirtResource) {
 
         String diagnosticsZipFile = command.getFileName();
-        String vmSshIp = command.getSystemVmIp();
+        String vmSshIp = libvirtResource.getSystemVmSshIp(command.getSystemVmIp());
         String secondaryStorageUrl = command.getSecondaryStorageUrl();
 
         KVMStoragePoolManager storagePoolMgr = libvirtResource.getStoragePoolMgr();

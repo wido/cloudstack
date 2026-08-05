@@ -86,6 +86,9 @@ public class RouterControlHelperTest {
         when(this.nwDao.findById(NW_ID_2)).thenReturn(nw2);
         lenient().when(this.nwDao.findById(NW_ID_3)).thenReturn(nw3);
 
+        DomainRouterVO router = mock(DomainRouterVO.class);
+        when(this.routerDao.findById(ROUTER_ID)).thenReturn(router);
+
         // Execute
         final String ip4address = this.routerControlHelper.getRouterControlIp(ROUTER_ID);
 

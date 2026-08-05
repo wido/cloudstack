@@ -4287,9 +4287,9 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
             case ConsoleProxy:
             case SecondaryStorageVm:
                 NicVO nic = _nicsDao.getControlNicForVM(vm.getId());
-                return nic.getIPv4Address();
+                return VirtualMachineManager.getControlAddress(vm.getHypervisorType(), nic.getIPv4Address(), nic.getMacAddress());
             case DomainRouter:
-                return vm.getPrivateIpAddress();
+                return VirtualMachineManager.getControlAddress(vm.getHypervisorType(), vm.getPrivateIpAddress(), vm.getPrivateMacAddress());
             default:
                 logger.debug("{} is a [{}], returning null for control Nic IP.", vm.toString(), vm.getType());
                 return null;
@@ -5382,7 +5382,7 @@ public class VirtualMachineManagerImpl extends ManagerBase implements VirtualMac
                 VmConfigDriveLabel, VmConfigDriveOnPrimaryPool, VmConfigDriveForceHostCacheUse, VmConfigDriveUseHostCacheOnUnsupportedPool,
                 HaVmRestartHostUp, ResourceCountRunningVMsonly, AllowExposeHypervisorHostname, AllowExposeHypervisorHostnameAccountLevel, SystemVmRootDiskSize,
                 AllowExposeDomainInMetadata, MetadataCustomCloudName, VmMetadataManufacturer, VmMetadataProductName,
-                VmSyncPowerStateTransitioning, SystemVmEnableUserData
+                VmSyncPowerStateTransitioning, SystemVmEnableUserData, SystemVmControlIpv6
         };
     }
 

@@ -26,6 +26,7 @@ import java.util.Map;
 
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.commons.lang3.StringUtils;
 
 import com.cloud.agent.api.to.NicTO;
 import com.cloud.agent.api.to.VirtualMachineTO;
@@ -52,6 +53,7 @@ import com.cloud.user.Account;
 import com.cloud.uservm.UserVm;
 import com.cloud.utils.Pair;
 import com.cloud.utils.component.Manager;
+import com.cloud.utils.net.NetUtils;
 import com.cloud.utils.fsm.NoTransitionException;
 
 /**
@@ -63,6 +65,25 @@ public interface VirtualMachineManager extends Manager {
 
     ConfigKey<Boolean> ExecuteInSequence = new ConfigKey<>("Advanced", Boolean.class, "execute.in.sequence.hypervisor.commands", "false",
             "If set to true, start, stop, reboot, copy and migrate commands will be serialized on the agent side. If set to false the commands are executed in parallel. Default value is false.", false);
+
+    ConfigKey<Boolean> SystemVmControlIpv6 = new ConfigKey<>("Advanced", Boolean.class, "systemvm.control.ipv6", "false",
+            "Connect to system VMs running on KVM over their IPv6 link-local address, calculated from the MAC address of the control NIC,"
+                    + " instead of their IPv4 link-local (169.254.0.0/16) address. There is no fallback to IPv4: only enable this when all"
+                    + " system VMs run a template which listens on SSH over IPv6 on the control network.", true);
+
+    /**
+     * Returns the address a hypervisor host should use to connect to a system VM
+     * over the control network. By default this is the IPv4 link-local address of
+     * the control NIC. With systemvm.control.ipv6 enabled the EUI-64 IPv6
+     * link-local address is calculated from the MAC address of the control NIC and
+     * the KVM agent scopes it to the control bridge.
+     */
+    static String getControlAddress(final HypervisorType hypervisorType, final String ipv4Address, final String macAddress) {
+        if (SystemVmControlIpv6.value() && HypervisorType.KVM.equals(hypervisorType) && StringUtils.isNotBlank(macAddress)) {
+            return NetUtils.ipv6LinkLocal(macAddress).toString();
+        }
+        return ipv4Address;
+    }
 
     ConfigKey<String> VmConfigDriveLabel = new ConfigKey<>("Hidden", String.class, "vm.configdrive.label", "config-2",
             "The default label name for the config drive", false);
