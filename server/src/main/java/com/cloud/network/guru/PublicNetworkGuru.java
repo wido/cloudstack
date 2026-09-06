@@ -149,6 +149,11 @@ public class PublicNetworkGuru extends AdapterBase implements NetworkGuru {
             nic.setIPv4Address(ip.getAddress().toString());
             nic.setIPv4Gateway(ip.getGateway());
             nic.setIPv4Netmask(ip.getNetmask());
+            nic.setFormat(AddressFormat.Ip4);
+            nic.setReservationId(String.valueOf(ip.getVlanTag()));
+            // Before the branch below: setRoutedRangeIpv6() derives the EUI-64 address from this
+            // MAC and upgrades the format to DualStack, so both must already be on the profile.
+            nic.setMacAddress(ip.getMacAddress());
             if (isRoutedRange(ip)) {
                 // Direct routed public range (SystemVMs on a ROUTED physical network): the
                 // address is a host route, not a subnet membership. Same form as a guest NIC on
@@ -169,9 +174,6 @@ public class PublicNetworkGuru extends AdapterBase implements NetworkGuru {
                 nic.setBroadcastUri(BroadcastDomainType.Vlan.toUri(ip.getVlanTag()));
                 nic.setBroadcastType(BroadcastDomainType.Vlan);
             }
-            nic.setFormat(AddressFormat.Ip4);
-            nic.setReservationId(String.valueOf(ip.getVlanTag()));
-            nic.setMacAddress(ip.getMacAddress());
         }
 
         Pair<String, String> dns = networkModel.getNetworkIp4Dns(network, dc);
