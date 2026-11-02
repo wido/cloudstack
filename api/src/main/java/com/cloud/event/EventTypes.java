@@ -52,6 +52,7 @@ import org.apache.cloudstack.schedule.ResourceSchedule;
 import org.apache.cloudstack.vm.bootgroup.InstanceBootGroup;
 import org.apache.cloudstack.vm.bootgroup.readiness.InstanceBootGroupReadinessRule;
 import org.apache.cloudstack.network.routedsubnet.RoutedSubnetOffering;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnet;
 
 import com.cloud.dc.DataCenter;
 import com.cloud.dc.DataCenterGuestIpv6Prefix;
@@ -856,6 +857,11 @@ public class EventTypes {
     public static final String EVENT_ROUTED_SUBNET_OFFERING_CREATE = "ROUTED.SUBNET.OFFERING.CREATE";
     public static final String EVENT_ROUTED_SUBNET_OFFERING_UPDATE = "ROUTED.SUBNET.OFFERING.UPDATE";
     public static final String EVENT_ROUTED_SUBNET_OFFERING_DELETE = "ROUTED.SUBNET.OFFERING.DELETE";
+    public static final String EVENT_ROUTED_SUBNET_ASSIGN = "ROUTED.SUBNET.ASSIGN";
+    public static final String EVENT_ROUTED_SUBNET_RELEASE = "ROUTED.SUBNET.RELEASE";
+    public static final String EVENT_ROUTED_SUBNET_UPDATE = "ROUTED.SUBNET.UPDATE";
+    public static final String EVENT_ROUTED_SUBNET_REANNOUNCE = "ROUTED.SUBNET.REANNOUNCE";
+    public static final String EVENT_ROUTED_SUBNET_ANNOUNCE_FAILED = "ROUTED.SUBNET.ANNOUNCE.FAILED";
     public static final String EVENT_NETWORK_BGP_PEER_UPDATE = "NETWORK.BGP.PEER.UPDATE";
     public static final String EVENT_VPC_BGP_PEER_UPDATE = "VPC.BGP.PEER.UPDATE";
 
@@ -1458,6 +1464,11 @@ public class EventTypes {
         entityEventDetails.put(EVENT_ROUTED_SUBNET_OFFERING_CREATE, RoutedSubnetOffering.class);
         entityEventDetails.put(EVENT_ROUTED_SUBNET_OFFERING_UPDATE, RoutedSubnetOffering.class);
         entityEventDetails.put(EVENT_ROUTED_SUBNET_OFFERING_DELETE, RoutedSubnetOffering.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_ASSIGN, RoutedSubnet.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_RELEASE, RoutedSubnet.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_UPDATE, RoutedSubnet.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_REANNOUNCE, RoutedSubnet.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_ANNOUNCE_FAILED, RoutedSubnet.class);
 
         // SharedFS
         entityEventDetails.put(EVENT_SHAREDFS_CREATE, SharedFS.class);

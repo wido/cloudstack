@@ -246,6 +246,7 @@ import com.cloud.vm.snapshot.VMSnapshotManager;
 import com.cloud.vm.snapshot.VMSnapshotVO;
 import com.cloud.vm.snapshot.dao.VMSnapshotDao;
 import org.apache.cloudstack.api.BaseCmd;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 import org.joda.time.DateTime;
 
 public class AccountManagerImpl extends ManagerBase implements AccountManager, Manager {
@@ -388,6 +389,8 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
     private RoleService roleService;
     @Inject
     private RoutedIpv4Manager routedIpv4Manager;
+    @Inject
+    RoutedSubnetService routedSubnetService;
 
     @Inject
     private PasswordPolicy passwordPolicy;
@@ -1120,6 +1123,10 @@ public class AccountManagerImpl extends ManagerBase implements AccountManager, M
             // Cleanup affinity groups
             int numAGRemoved = _affinityGroupDao.removeByAccountId(accountId);
             logger.info("deleteAccount: Deleted {} affinity groups for account {}", numAGRemoved, account);
+
+            // Release the subnets routed to the account's Instances; normally gone with the NICs,
+            // this catches what an earlier failure left behind.
+            routedSubnetService.releaseRoutedSubnetsForAccount(accountId);
 
             // Delete all the networks
             boolean networksDeleted = true;

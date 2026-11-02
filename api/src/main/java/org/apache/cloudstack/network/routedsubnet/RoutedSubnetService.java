@@ -20,12 +20,18 @@ import java.util.List;
 
 import org.apache.cloudstack.api.command.admin.routedsubnet.CreateRoutedSubnetOfferingCmd;
 import org.apache.cloudstack.api.command.admin.routedsubnet.DeleteRoutedSubnetOfferingCmd;
+import org.apache.cloudstack.api.command.admin.routedsubnet.ReannounceRoutedSubnetCmd;
 import org.apache.cloudstack.api.command.admin.routedsubnet.UpdateRoutedSubnetOfferingCmd;
+import org.apache.cloudstack.api.command.user.routedsubnet.AssignRoutedSubnetCmd;
 import org.apache.cloudstack.api.command.user.routedsubnet.ListRoutedSubnetOfferingsCmd;
+import org.apache.cloudstack.api.command.user.routedsubnet.ListRoutedSubnetsCmd;
+import org.apache.cloudstack.api.command.user.routedsubnet.ReleaseRoutedSubnetCmd;
 import org.apache.cloudstack.api.response.RoutedSubnetOfferingResponse;
+import org.apache.cloudstack.api.response.RoutedSubnetResponse;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
 
+import com.cloud.exception.ResourceAllocationException;
 import com.cloud.utils.Pair;
 import com.cloud.utils.component.PluggableService;
 
@@ -55,10 +61,25 @@ public interface RoutedSubnetService extends PluggableService, Configurable {
             "Name of the route announcer plugin that gets Static-mode routed subnets into the fabric for this zone. Empty disables Static-mode offerings in the zone.",
             true, ConfigKey.Scope.Zone);
 
+    ConfigKey<String> RoutedSubnetAnnouncerStrategy = new ConfigKey<>(ConfigKey.CATEGORY_NETWORK, String.class,
+            "routed.subnet.announcer.strategy", "all",
+            "How the announcer's endpoints are used: 'all' sends every announcement to every endpoint, 'failover' uses the first endpoint that accepts.",
+            true, ConfigKey.Scope.Zone);
+
+    ConfigKey<Integer> RoutedSubnetAnnouncerHealthInterval = new ConfigKey<>(ConfigKey.CATEGORY_NETWORK, Integer.class,
+            "routed.subnet.announcer.health.interval", "30",
+            "Seconds between health checks of the announcer endpoints; an endpoint that comes back or restarted is resynchronised at once. 0 disables the checks.",
+            false);
+
     ConfigKey<Integer> RoutedSubnetReconcileInterval = new ConfigKey<>(ConfigKey.CATEGORY_NETWORK, Integer.class,
             "routed.subnet.reconcile.interval", "300",
             "Seconds between runs of the task that makes every route announcer endpoint match the database; 0 disables it.",
             false);
+
+    String STRATEGY_ALL = "all";
+    String STRATEGY_FAILOVER = "failover";
+
+    // offerings
 
     RoutedSubnetOffering createRoutedSubnetOffering(CreateRoutedSubnetOfferingCmd cmd);
 
@@ -69,4 +90,31 @@ public interface RoutedSubnetService extends PluggableService, Configurable {
     Pair<List<? extends RoutedSubnetOffering>, Integer> listRoutedSubnetOfferings(ListRoutedSubnetOfferingsCmd cmd);
 
     RoutedSubnetOfferingResponse createRoutedSubnetOfferingResponse(RoutedSubnetOffering offering);
+
+    // subnets
+
+    /** Assigns the offering's subnet(s), or attaches an existing BGP-mode subnet to another NIC. */
+    List<RoutedSubnet> assignRoutedSubnet(AssignRoutedSubnetCmd cmd) throws ResourceAllocationException;
+
+    boolean releaseRoutedSubnet(ReleaseRoutedSubnetCmd cmd);
+
+    Pair<List<RoutedSubnet>, Integer> listRoutedSubnets(ListRoutedSubnetsCmd cmd);
+
+    RoutedSubnet reannounceRoutedSubnet(ReannounceRoutedSubnetCmd cmd);
+
+    RoutedSubnetResponse createRoutedSubnetResponse(RoutedSubnet subnet);
+
+    // internal
+
+    /** The subnets routed to the NIC, both families. */
+    List<RoutedSubnet> listRoutedSubnetsForNic(long nicId);
+
+    /** Releases every subnet routed to the NIC; called when the NIC goes away. Never throws. */
+    void releaseRoutedSubnetsForNic(long nicId);
+
+    /** Releases every subnet of the account; called from account cleanup. Never throws. */
+    void releaseRoutedSubnetsForAccount(long accountId);
+
+    /** Re-announces every Static-mode subnet on the network's NICs; called from network restart. */
+    void reannounceRoutedSubnetsForNetwork(long networkId);
 }

@@ -181,6 +181,7 @@ import com.cloud.network.dao.RouterNetworkDao;
 import org.apache.cloudstack.extension.Extension;
 import org.apache.cloudstack.extension.ExtensionHelper;
 import org.apache.cloudstack.framework.extensions.network.NetworkExtensionElement;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 
 import com.cloud.network.element.AggregatedCommandExecutor;
 import com.cloud.network.element.ConfigDriveNetworkElement;
@@ -471,6 +472,8 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
     ClusterDao clusterDao;
     @Inject
     RoutedIpv4Manager routedIpv4Manager;
+    @Inject
+    RoutedSubnetService routedSubnetService;
     @Inject
     private ReservationDao reservationDao;
 
@@ -2788,6 +2791,10 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
     protected void removeNic(final VirtualMachineProfile vm, final NicVO nic) {
         // release/deallocate below clears the nic's own mac - capture it now for the association DHCP removal further down
         final String nicMacAddress = nic.getMacAddress();
+
+        // Subnets routed to the NIC's address go before the address itself does, so the next hop
+        // of a withdrawn route never belongs to someone else.
+        routedSubnetService.releaseRoutedSubnetsForNic(nic.getId());
 
         if (nic.getReservationStrategy() == Nic.ReservationStrategy.Start && nic.getState() != Nic.State.Allocated) {
             // Nics with reservation strategy 'Start' should go through release phase in the Nic life cycle.

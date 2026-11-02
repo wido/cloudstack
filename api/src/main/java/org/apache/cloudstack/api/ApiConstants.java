@@ -146,6 +146,16 @@ public class ApiConstants {
     public static final String IP6_CIDR = "ip6cidr";
     public static final String IP4_PREFIX_LENGTH = "ip4prefixlength";
     public static final String IP6_PREFIX_LENGTH = "ip6prefixlength";
+    public static final String ADDRESS_FAMILY = "addressfamily";
+    public static final String ANNOUNCED = "announced";
+    public static final String ENDPOINTS = "endpoints";
+    public static final String ENDPOINT = "endpoint";
+    public static final String LAST_ATTEMPT = "lastattempt";
+    public static final String SUBNET_ID = "subnetid";
+    public static final String IP4_SUBNET = "ip4subnet";
+    public static final String IP6_SUBNET = "ip6subnet";
+    public static final String OFFERING_ID = "offeringid";
+    public static final String OFFERING_NAME = "offeringname";
     public static final String CIDR_LIST = "cidrlist";
     public static final String DEST_CIDR_LIST = "destcidrlist";
     public static final String CLEANUP = "cleanup";
