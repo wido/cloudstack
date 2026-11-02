@@ -75,15 +75,15 @@ export default {
   }, {
     name: 'ipv4.subnets',
     component: shallowRef(defineAsyncComponent(() => import('@/views/infra/zone/Ipv4GuestSubnetsTab.vue'))),
-    show: (record) => { return record.routedmodeenabled && 'listIpv4SubnetsForZone' in store.getters.apis }
+    show: (record) => { return (record.routedmodeenabled || record.routedsubnetsenabled) && 'listIpv4SubnetsForZone' in store.getters.apis }
   }, {
     name: 'asnumber',
     component: shallowRef(defineAsyncComponent(() => import('@/views/infra/zone/AsNumbersTab.vue'))),
-    show: (record) => { return record.routedmodeenabled && 'listASNumbers' in store.getters.apis }
+    show: (record) => { return (record.routedmodeenabled || record.routedsubnetsenabled) && 'listASNumbers' in store.getters.apis }
   }, {
     name: 'bgp.peers',
     component: shallowRef(defineAsyncComponent(() => import('@/views/infra/zone/BgpPeersTab.vue'))),
-    show: (record) => { return record.routedmodeenabled && 'listBgpPeers' in store.getters.apis }
+    show: (record) => { return (record.routedmodeenabled || record.routedsubnetsenabled) && 'listBgpPeers' in store.getters.apis }
   }, {
     name: 'system.vms',
     component: shallowRef(defineAsyncComponent(() => import('@/views/infra/zone/SystemVmsTab.vue'))),

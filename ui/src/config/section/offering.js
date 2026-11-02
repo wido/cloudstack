@@ -558,6 +558,74 @@ export default {
       }]
     },
     {
+      name: 'routedsubnetoffering',
+      title: 'label.routed.subnet.offerings',
+      icon: 'branches-outlined',
+      docHelp: 'adminguide/networking_and_traffic.html#routed-subnets',
+      permission: ['listRoutedSubnetOfferings'],
+      searchFilters: ['name', 'zoneid', 'domainid'],
+      columns: ['name', 'state', 'displaytext', 'mode', 'ip4prefixlength', 'ip6prefixlength', 'domain', 'zonename'],
+      details: ['name', 'id', 'displaytext', 'mode', 'ip4prefixlength', 'ip6prefixlength', 'state', 'details', 'domain', 'zonename', 'created'],
+      tabs: [
+        {
+          name: 'details',
+          component: shallowRef(defineAsyncComponent(() => import('@/components/view/DetailsTab.vue')))
+        },
+        {
+          name: 'events',
+          resourceType: 'RoutedSubnetOffering',
+          component: shallowRef(defineAsyncComponent(() => import('@/components/view/EventsTab.vue'))),
+          show: () => { return 'listEvents' in store.getters.apis }
+        }
+      ],
+      actions: [{
+        api: 'createRoutedSubnetOffering',
+        icon: 'plus-outlined',
+        label: 'label.add.routed.subnet.offering',
+        listView: true,
+        popup: true,
+        component: shallowRef(defineAsyncComponent(() => import('@/views/offering/AddRoutedSubnetOffering.vue')))
+      }, {
+        api: 'updateRoutedSubnetOffering',
+        icon: 'edit-outlined',
+        label: 'label.edit',
+        dataView: true,
+        args: ['name', 'displaytext']
+      }, {
+        api: 'updateRoutedSubnetOffering',
+        icon: 'play-circle-outlined',
+        label: 'label.enable.routed.subnet.offering',
+        message: 'message.confirm.enable.routed.subnet.offering',
+        dataView: true,
+        show: (record) => { return record.state === 'Inactive' },
+        args: ['state'],
+        mapping: {
+          state: {
+            value: (record) => { return 'Active' }
+          }
+        }
+      }, {
+        api: 'updateRoutedSubnetOffering',
+        icon: 'pause-circle-outlined',
+        label: 'label.disable.routed.subnet.offering',
+        message: 'message.confirm.disable.routed.subnet.offering',
+        dataView: true,
+        show: (record) => { return record.state === 'Active' },
+        args: ['state'],
+        mapping: {
+          state: {
+            value: (record) => { return 'Inactive' }
+          }
+        }
+      }, {
+        api: 'deleteRoutedSubnetOffering',
+        icon: 'delete-outlined',
+        label: 'label.remove.routed.subnet.offering',
+        message: 'message.confirm.remove.routed.subnet.offering',
+        dataView: true
+      }]
+    },
+    {
       name: 'vpcoffering',
       title: 'label.vpc.offerings',
       icon: 'deployment-unit-outlined',

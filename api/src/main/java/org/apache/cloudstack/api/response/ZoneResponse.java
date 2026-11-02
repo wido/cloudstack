@@ -174,6 +174,10 @@ public class ZoneResponse extends BaseResponseWithAnnotations implements SetReso
     @Param(description = "True, if routed Network/VPC is enabled", since = "4.20.1")
     private boolean routedModeEnabled = false;
 
+    @SerializedName(ApiConstants.ROUTED_SUBNETS_ENABLED)
+    @Param(description = "True if subnets can be routed to Instances in the zone", since = "24.0.0")
+    private boolean routedSubnetsEnabled = false;
+
     @SerializedName(ApiConstants.STORAGE_ACCESS_GROUPS)
     @Param(description = "comma-separated list of storage access groups for the zone", since = "4.21.0")
     private String storageAccessGroups;
@@ -477,5 +481,9 @@ public class ZoneResponse extends BaseResponseWithAnnotations implements SetReso
 
     public void setRoutedModeEnabled(boolean routedModeEnabled) {
         this.routedModeEnabled = routedModeEnabled;
+    }
+
+    public void setRoutedSubnetsEnabled(boolean routedSubnetsEnabled) {
+        this.routedSubnetsEnabled = routedSubnetsEnabled;
     }
 }

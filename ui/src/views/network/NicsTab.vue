@@ -61,6 +61,12 @@
           :disabled="(!('addIpToNic' in $store.getters.apis) && !('addIpToNic' in $store.getters.apis))"
           @onClick="onAcquireSecondaryIPAddress(record)" />
         <tooltip-button
+          v-if="(record.nic.type === 'L3' || record.nic.type === 'Shared') && 'listRoutedSubnets' in $store.getters.apis"
+          tooltipPlacement="bottom"
+          :tooltip="$t('label.edit.routed.subnets')"
+          icon="branches-outlined"
+          @onClick="onRoutedSubnets(record)" />
+        <tooltip-button
           v-if="resource.hypervisor === 'KVM'"
           tooltipPlacement="bottom"
           :tooltip="$t('label.edit.nic')"
@@ -320,6 +326,64 @@
     </a-modal>
 
     <a-modal
+      :visible="showRoutedSubnetsModal"
+      :title="$t('label.edit.routed.subnets')"
+      :maskClosable="false"
+      :footer="null"
+      :closable="true"
+      class="wide-modal"
+      @cancel="closeModals">
+      <a-spin :spinning="loadingRoutedSubnets">
+        <a-button
+          type="primary"
+          :disabled="!('assignRoutedSubnet' in $store.getters.apis)"
+          @click="showAssignRoutedSubnet = true">
+          <template #icon><plus-outlined /></template>
+          {{ $t('label.assign.routed.subnet') }}
+        </a-button>
+        <a-divider />
+        <a-list itemLayout="vertical" :dataSource="routedSubnets">
+          <template #renderItem="{ item }">
+            <a-list-item>
+              <a-popconfirm
+                :title="`${$t('label.release.routed.subnet')}?`"
+                @confirm="releaseRoutedSubnet(item)"
+                :okText="$t('label.yes')"
+                :cancelText="$t('label.no')">
+                <tooltip-button
+                  tooltipPlacement="top"
+                  :tooltip="$t('label.release.routed.subnet')"
+                  type="primary"
+                  :danger="true"
+                  :disabled="!('releaseRoutedSubnet' in $store.getters.apis)"
+                  icon="delete-outlined" />
+              </a-popconfirm>
+              <router-link :to="{ path: '/routedsubnet/' + item.id }">{{ item.subnet }}</router-link>
+              <a-tag style="margin-left: 8px">{{ item.mode }}</a-tag>
+              <a-tag v-if="item.announced" :color="item.announced === 'all' ? 'green' : 'orange'">{{ item.announced }}</a-tag>
+              <span style="margin-left: 8px">{{ item.offeringname }}</span>
+            </a-list-item>
+          </template>
+        </a-list>
+      </a-spin>
+    </a-modal>
+
+    <a-modal
+      :visible="showAssignRoutedSubnet"
+      :title="$t('label.assign.routed.subnet')"
+      :maskClosable="false"
+      :footer="null"
+      :closable="true"
+      @cancel="showAssignRoutedSubnet = false">
+      <assign-routed-subnet
+        v-if="showAssignRoutedSubnet"
+        :nicId="selectedNicId"
+        :zoneId="vm.zoneid"
+        @close-action="showAssignRoutedSubnet = false"
+        @refresh-data="fetchRoutedSubnets(selectedNicId)" />
+    </a-modal>
+
+    <a-modal
       :visible="showUpdateNicModal"
       :title="$t('label.edit.nic')"
       :maskClosable="false"
@@ -353,6 +417,7 @@ import TooltipLabel from '@/components/widgets/TooltipLabel'
 import TooltipButton from '@/components/widgets/TooltipButton'
 import ResourceIcon from '@/components/view/ResourceIcon'
 import { isMultiNetworkNicEnabledForZone, fetchMultiNetworkNicEnabledForZone } from '@/utils/multiNetworkNic'
+import AssignRoutedSubnet from '@/views/network/AssignRoutedSubnet'
 
 export default {
   name: 'NicsTab',
@@ -360,7 +425,8 @@ export default {
     NicsTable,
     TooltipLabel,
     TooltipButton,
-    ResourceIcon
+    ResourceIcon,
+    AssignRoutedSubnet
   },
   props: {
     resource: {
@@ -382,6 +448,10 @@ export default {
       showUpdateIpModal: false,
       showSecondaryIpModal: false,
       showUpdateNicModal: false,
+      showRoutedSubnetsModal: false,
+      showAssignRoutedSubnet: false,
+      loadingRoutedSubnets: false,
+      routedSubnets: [],
       addNetworkData: {
         allNetworks: [],
         network: '',
@@ -435,6 +505,45 @@ export default {
         this.addNetworkData.network = this.addNetworkData.allNetworks[0].id
       })
     },
+    onRoutedSubnets (record) {
+      this.selectedNicId = record.nic.id
+      this.showRoutedSubnetsModal = true
+      this.fetchRoutedSubnets(record.nic.id)
+    },
+    fetchRoutedSubnets (nicId) {
+      this.loadingRoutedSubnets = true
+      getAPI('listRoutedSubnets', { nicid: nicId, listall: true }).then(response => {
+        this.routedSubnets = response.listroutedsubnetsresponse.routedsubnet || []
+      }).catch(error => {
+        this.$notifyError(error)
+      }).finally(() => {
+        this.loadingRoutedSubnets = false
+      })
+    },
+    releaseRoutedSubnet (subnet) {
+      this.loadingRoutedSubnets = true
+      postAPI('releaseRoutedSubnet', { id: subnet.id, nicid: this.selectedNicId }).then(response => {
+        this.$pollJob({
+          jobId: response.releaseroutedsubnetresponse.jobid,
+          successMessage: this.$t('message.success.release.routed.subnet'),
+          successMethod: () => {
+            this.fetchRoutedSubnets(this.selectedNicId)
+          },
+          errorMessage: this.$t('label.error'),
+          errorMethod: () => {
+            this.fetchRoutedSubnets(this.selectedNicId)
+          },
+          loadingMessage: this.$t('label.release.routed.subnet'),
+          catchMessage: this.$t('error.fetching.async.job.result'),
+          catchMethod: () => {
+            this.fetchRoutedSubnets(this.selectedNicId)
+          }
+        })
+      }).catch(error => {
+        this.$notifyError(error)
+        this.loadingRoutedSubnets = false
+      })
+    },
     fetchSecondaryIPs (nicId) {
       this.showSecondaryIpModal = true
       this.selectedNicId = nicId
@@ -478,6 +587,8 @@ export default {
       this.listNetworks()
     },
     closeModals () {
+      this.showRoutedSubnetsModal = false
+      this.showAssignRoutedSubnet = false
       this.showAddNetworkModal = false
       this.showAssociateNetworksModal = false
       this.showUpdateIpModal = false

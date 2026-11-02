@@ -843,6 +843,81 @@ export default {
       ]
     },
     {
+      name: 'routedsubnet',
+      title: 'label.routed.subnets',
+      icon: 'branches-outlined',
+      docHelp: 'adminguide/networking_and_traffic.html#routed-subnets',
+      permission: ['listRoutedSubnets'],
+      searchFilters: ['zoneid', 'domainid', 'account', 'mode'],
+      columns: () => {
+        const fields = ['subnet', 'mode', 'state', 'announced', 'virtualmachinename', 'nexthop', 'offeringname']
+        if (store.getters.listAllProjects) {
+          fields.push('project')
+        } else {
+          fields.push('account')
+        }
+        fields.push('zonename')
+        return fields
+      },
+      details: ['subnet', 'id', 'addressfamily', 'mode', 'state', 'announced', 'offeringname', 'virtualmachinename', 'nicid', 'nexthop', 'networkid', 'account', 'domainpath', 'zonename', 'created'],
+      tabs: [{
+        name: 'details',
+        component: shallowRef(defineAsyncComponent(() => import('@/components/view/DetailsTab.vue')))
+      }, {
+        name: 'routed.subnet.attachments',
+        component: shallowRef(defineAsyncComponent(() => import('@/views/network/RoutedSubnetTab.vue')))
+      }, {
+        name: 'events',
+        resourceType: 'RoutedSubnet',
+        component: shallowRef(defineAsyncComponent(() => import('@/components/view/EventsTab.vue'))),
+        show: () => { return 'listEvents' in store.getters.apis }
+      }],
+      actions: [{
+        api: 'assignRoutedSubnet',
+        icon: 'plus-outlined',
+        label: 'label.assign.routed.subnet',
+        docHelp: 'adminguide/networking_and_traffic.html#routed-subnets',
+        listView: true,
+        popup: true,
+        component: shallowRef(defineAsyncComponent(() => import('@/views/network/AssignRoutedSubnet.vue')))
+      }, {
+        api: 'assignRoutedSubnet',
+        icon: 'share-alt-outlined',
+        label: 'label.attach.routed.subnet',
+        message: 'message.attach.routed.subnet',
+        dataView: true,
+        popup: true,
+        show: (record) => { return record.mode === 'BGP' },
+        component: shallowRef(defineAsyncComponent(() => import('@/views/network/AssignRoutedSubnet.vue')))
+      }, {
+        api: 'updateRoutedSubnet',
+        icon: 'swap-outlined',
+        label: 'label.change.routed.subnet.offering',
+        dataView: true,
+        popup: true,
+        component: shallowRef(defineAsyncComponent(() => import('@/views/network/ChangeRoutedSubnetOffering.vue')))
+      }, {
+        api: 'reannounceRoutedSubnet',
+        icon: 'sync-outlined',
+        label: 'label.reannounce.routed.subnet',
+        message: 'message.reannounce.routed.subnet',
+        dataView: true,
+        show: (record) => { return record.mode === 'Static' && isAdmin() }
+      }, {
+        api: 'releaseRoutedSubnet',
+        icon: 'delete-outlined',
+        label: 'label.release.routed.subnet',
+        message: 'message.release.routed.subnet',
+        dataView: true,
+        args: ['nicid'],
+        mapping: {
+          nicid: {
+            value: (record) => { return record.nicid }
+          }
+        }
+      }]
+    },
+    {
       name: 'publicip',
       title: 'label.public.ip.addresses',
       icon: 'environment-outlined',

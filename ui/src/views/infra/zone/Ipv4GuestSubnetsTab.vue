@@ -191,6 +191,12 @@
         <a-form-item name="subnet" ref="subnet" :label="$t('label.subnet')" class="form__item">
           <a-input v-focus="true" v-model:value="ipv4SubnetForm.subnet" />
         </a-form-item>
+        <a-form-item name="purpose" ref="purpose" :label="$t('label.purpose')" class="form__item">
+          <a-select v-model:value="ipv4SubnetForm.purpose">
+            <a-select-option value="Network">{{ $t('label.purpose.network') }}</a-select-option>
+            <a-select-option value="Instance">{{ $t('label.purpose.instance') }}</a-select-option>
+          </a-select>
+        </a-form-item>
         <div class="form__item">
           <div style="color: black;">{{ $t('label.set.reservation') }}</div>
           <a-switch v-model:checked="showAccountForIpv4GuestSubnetFields" @change="handleShowAccountForIpv4GuestSubnetFields" />
@@ -305,6 +311,10 @@ export default {
         {
           title: this.$t('label.subnet'),
           dataIndex: 'subnet'
+        },
+        {
+          title: this.$t('label.purpose'),
+          dataIndex: 'purpose'
         },
         {
           title: this.$t('label.domain'),
@@ -535,6 +545,7 @@ export default {
         var params = {
           zoneId: this.resource.id,
           subnet: values.subnet,
+          purpose: values.purpose || 'Network',
           domainid: values.domain,
           account: values.account
         }
