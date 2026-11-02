@@ -1,6 +1,6 @@
 # Routed Subnets for Instances
 
-**Status:** draft — design agreed; §16 lists what is still open
+**Status:** implemented on the branch (commits listed in §15); §16 lists what remains to verify
 **Branch:** `routed-subnets` (on top of `direct-routed-network`, PR #13758)
 **Author:** Wido den Hollander
 **Last updated:** 2026-11-02
@@ -173,8 +173,11 @@ allocated`) gains
 * `nic_id` bigint nullable — the next-hop NIC. Exactly one of `network_id`, `vpc_id`, `nic_id` is
   set on an Allocated row.
 * `offering_id` bigint nullable — the Routed Subnet Offering; set means purpose Instance.
-* `announced` tinyint — what the announcer last confirmed (Static mode only).
-* state values: existing `Free`/`Allocated` plus `Releasing` (withdraw pending).
+* `account_id`, `domain_id` nullable — the owner, so listing, counting and account cleanup need
+  no join through the NIC (added during implementation; NULL on Routed-mode network rows, whose
+  owner is their network).
+* state values: existing `Free`/`Allocated` plus `Releasing` (withdraw pending). What each
+  announcer endpoint holds lives in its own table (§6.7.1), not on the row.
 
 **`dc_ip6_guest_prefix`** (zone pool: `data_center_id, prefix`) gains
 
@@ -184,7 +187,7 @@ allocated`) gains
 * `purpose` as above.
 
 **`ip6_guest_prefix_subnet_network_map`** (child: `prefix_id, subnet, network_id, state`) gains
-`nic_id`, `offering_id`, `announced` and the `Releasing` state, as the IPv4 child.
+`nic_id`, `offering_id`, `account_id`, `domain_id` and the `Releasing` state, as the IPv4 child.
 
 **Why `purpose` is needed — DECIDED: a flag.** The IPv6 allocator for Isolated networks
 (`Ipv6ServiceImpl.preallocatePrefixSubnetRandomly`) splits a prefix into /64s and picks a free one
@@ -195,9 +198,11 @@ pools safely (both carvers see every child through the gap computation), but the
 an operator's public space apart from the Routed-mode Isolated space, which is usually the intent
 anyway.
 
-**Allocation.** `RoutedIpv4ManagerImpl.createIpv4SubnetStringFromParentSubnet` /
-`getFreeNetworkCidr` (sort children, compute gaps, split gaps into aligned blocks, best fit) is
-extracted into a family-agnostic helper. IPv4 keeps `long`; IPv6 uses `BigInteger`, which
+**Allocation.** The Routed-mode carver (`RoutedIpv4ManagerImpl.createIpv4SubnetStringFromParentSubnet`,
+IPv4 only, best fit in `long`) stays as it is for guest networks; the Instance path uses
+`SubnetCarver`, one first-fit scan in `BigInteger` for both families, with its own unit tests.
+Two carvers over the same child rows are safe because every child is visible to both through
+the gap computation. IPv6 uses `BigInteger`, which
 `NetUtils` already uses for the EUI-64 and range code. Pool lookup order (account-dedicated,
 domain-dedicated, undedicated) and the "reuse a Free child of this exact size first" rule
 (`findFirstAvailable(parentId, cidrSize)`) are kept. Ownership of an Allocated row is derived from
@@ -245,16 +250,20 @@ must work on Shared networks whose offerings predate this feature. So:
 
 ```java
 public interface RouteAnnouncer extends Adapter {
-    boolean isConfigured(long zoneId);
-    void announce(long zoneId, String prefix, String nextHop) throws RouteAnnouncementException;
-    void withdraw(long zoneId, String prefix, String nextHop) throws RouteAnnouncementException;
-    Set<Announcement> list(long zoneId) throws RouteAnnouncementException;
+    List<String> getEndpoints(long zoneId);
+    void announce(long zoneId, String endpoint, String prefix, String nextHop) throws RouteAnnouncementException;
+    void withdraw(long zoneId, String endpoint, String prefix, String nextHop) throws RouteAnnouncementException;
+    Set<Announcement> list(long zoneId, String endpoint) throws RouteAnnouncementException;
+    String getInstanceId(long zoneId, String endpoint) throws RouteAnnouncementException;
 }
 ```
 
-Spring-injected `List<RouteAnnouncer>`; a zone-scoped setting `routed.subnet.announcer` names the
-one to use (empty: Static-mode offerings cannot be assigned in that zone). `list()` exists for
-reconciliation (§10).
+The SPI is per endpoint, so the strategy (§6.7) and the per-endpoint records (§6.7.1) live in
+the manager and every announcer gets them for free. Announcers register through the
+`routeAnnouncersRegistry` extension registry (core module `routing`, plugins declare
+`parent=routing`); a zone-scoped setting `routed.subnet.announcer` names the one to use by its
+adapter name (empty: Static-mode offerings cannot be assigned in that zone). `list()` and
+`getInstanceId()` exist for reconciliation (§10).
 
 **Failure semantics — Pending, never fail the user.**
 
@@ -286,13 +295,13 @@ Default `all`.
 What each endpoint has confirmed is stored, not summarised into one flag:
 
 ```
-routed_subnet_announcement
+routed_subnet_announcements
   id, address_family, subnet_map_id, endpoint, announced (datetime, NULL = not held),
-  last_error varchar, last_attempt datetime
+  last_error varchar, last_attempt datetime, created, removed
 ```
 
-One row per `(map row, endpoint)`, created at assign for every endpoint of the zone. The
-`announced` column on the map tables goes away; the API derives `none`/`partial`/`all` and lists
+One row per `(map row, endpoint)`, created when the endpoint is first tried. The API derives
+`none`/`partial`/`all` (with the failover strategy, one held endpoint is `all`) and lists
 the endpoints with their state and last error. The reconciler retries only the rows that are not
 held, and an admin can see at a glance that one speaker has been behind for an hour. The rows are
 removed with the map row once every endpoint has confirmed the withdraw.
@@ -403,8 +412,8 @@ no separate `mode` parameter. Constraints:
 * The new offering must have the same families and prefix lengths as the current one; nothing is
   re-carved. Offerings themselves are immutable in mode and sizes once a subnet uses them
   (`updateRoutedSubnetOffering` changes name, display text, state and visibility only).
-* **Static → BGP.** The Instance gets an ASN if it has none yet (§6.8), ConfigDrive is rebuilt
-  with the `routed-subnets-bgp` file, then every endpoint's announcement is withdrawn (per-endpoint
+* **Static → BGP.** The Instance gets an ASN if it has none yet (§6.8), the metadata gains the
+  `routed-subnets-bgp` file at the next start (§8), then every endpoint's announcement is withdrawn (per-endpoint
   rows, §6.7.1, so a slow endpoint cannot block the switch). The documented order for the user is:
   bring the BGP session up on the Instance **before** switching, while CloudStack's announcement
   is still in place. Two sources announcing the same prefix is harmless; a gap is not. CloudStack
@@ -465,8 +474,14 @@ cloud-init configures nothing from unknown keys, so the data is not put there.
 BGP-mode subnets additionally get `routed-subnets-bgp`: `local_asn=<Instance ASN>` once, then one
 `peer=<address> <asn> [password]` line per applicable peer (§6.8), so a guest can template an FRR
 or BIRD config from them. The password is the one stored on the peer; it reaches only this
-Instance's own ConfigDrive. ConfigDrive is rebuilt on assign
-and release, as it is for secondary IPs and user data today.
+Instance's own ConfigDrive.
+
+**When the guest sees it (found in implementation).** CloudStack never rebuilds a running
+Instance's ConfigDrive; even a user-data change waits for the next start. The two files are
+therefore current as of the Instance's last start or migration, and a subnet assigned to a
+running Instance shows up in its metadata at the next start. The API (`listRoutedSubnets`) is
+the live view. The Virtual Router serves the same files on networks that have one, through the
+usual VM data push.
 
 ## 9. Agent (KVM)
 
@@ -662,28 +677,39 @@ Labels in `ui/public/locales/en.json`; other locales fall back to English as usu
   capability in their startup details; assign on an Instance running on an old host fails with a
   clear message rather than leaving a half-configured subnet.
 
-## 15. Work breakdown
+## 15. Implementation
 
-| part | size | risk |
-|---|---|---|
-| schema columns, VO/DAO changes on the four tables, carve helper extracted from `RoutedIpv4ManagerImpl` and made family-agnostic | M | low; IPv6 math in `BigInteger` needs tests; the IPv6 pool gets dedication it never had |
-| offerings, purpose/dedication APIs, resource type, APIs and responses | L | low, lots of boilerplate |
-| assign/release orchestration, Pending/Releasing handling, restart hook, ConfigDrive | M | medium; the release ordering, expunge and reconcile paths are where bugs hide |
-| `RouteAnnouncer` SPI, per-endpoint records, health polling, reconciler, strategy handling | M | low |
-| HTTP announcer plugin and ExaBGP reference daemon | M | medium; needs a lab with ExaBGP peering into the fabric |
-| agent: NicTO, script `-r` with metric, hot command, `hash:net`, `--subnets` | M | medium; goldens and traversal tests in `test_security_group.py` extend naturally |
-| BGP mode: `vm_id` on `as_number`, per-Instance ASN lifecycle, ConfigDrive files | M | low |
-| Marvin smoke tests | M | low |
-| UI: Routed Subnets section, NIC tab, offering section, zone tab gating and forms, limits row (§11) | L | low, but it is the largest single part |
-| mode switch (`updateRoutedSubnet`), ASN lifecycle on switch, ConfigDrive rebuild | S | low |
+On branch `routed-subnets`, on top of `direct-routed-network`, one commit per part:
 
-Suggested order: schema and SPI first, then assign/release with a `NoopRouteAnnouncer` for tests,
-then the agent, then the HTTP announcer and daemon, then BGP-mode metadata and the mode switch,
-then the UI, which lands in the same PR.
+| commit | content |
+|---|---|
+| security_group.py: per-Instance IPv4 ipset becomes hash:net | the one-line change that lets a subnet join the set, on its own for review |
+| schema and data model | columns on the four pool tables, `vm_id` on `as_number`, offering and announcement tables, `routed_subnet` resource type |
+| offerings, pool purpose and IPv6 prefix dedication | Routed Subnet Offering APIs, `purpose` on pools, IPv6 prefix dedication APIs, API registration gating |
+| assignment, release, listing and the announcer SPI | `RoutedSubnetManagerImpl`, `SubnetCarver`, `RouteAnnouncer`, per-endpoint records, reconciler and health task, NIC removal and account cleanup hooks, limits |
+| host routes, ipsets and hot changes on KVM | `NicTO.routedSubnets`, `modifymacip.sh -r` with the address-derived metric, `--subnets` and `network_rules_vm_subnet` in the security group script, `ModifyRoutedSubnetCommand` |
+| routed-subnets metadata for ConfigDrive and the VR | `routed-subnets` file |
+| HTTP route announcer plugin with an ExaBGP daemon | `plugins/routing/http-announcer`, `exabgp-announcer.py`, README, `restartNetwork` hook |
+| BGP mode with an AS number per Instance, and the mode switch | ASN lifecycle, `routed-subnets-bgp` file, `updateRoutedSubnet` |
+| UI | §11 |
+| Marvin helpers and smoke tests | `test/integration/smoke/test_routed_subnets.py` |
 
-## 16. Open questions
+Unit tests: `SubnetCarverTest`, `RoutedSubnetManagerImplTest`, `HttpRouteAnnouncerTest`, the
+daemon's `test_exabgp_announcer.py`, and the security group script's `test_security_group.py`
+(ipset type, `--subnets`, hot add/remove).
 
-None at the moment. What remains is implementation.
+## 16. Still to verify
+
+Nothing in the design is open. What has not been exercised yet:
+
+* **Lab.** The whole chain on real hosts: carve, host route with metric, ipset membership,
+  ExaBGP announcement and reconciliation after an ExaBGP restart, anycast with two Instances on
+  one host, and a BGP-mode Instance peering multihop with the upstream router from the metadata
+  it was given.
+* **Marvin.** `test_routed_subnets.py` was written against the simulator's behaviour for L3
+  networks but not run here.
+* **UI.** Written and reviewed, not built or linted on this machine (no Node runtime available).
+* **Upgrade.** The schema changes on an existing 4.20+ database with Routed-mode pools in use.
 
 ## 17. Decision log
 
@@ -702,3 +728,8 @@ None at the moment. What remains is implementation.
   change (`updateRoutedSubnet offeringid=`), §6.11. ExaBGP 6 `on-exit keep;` noted; Ze checked:
   pre-alpha, AGPL, runs ExaBGP process scripts through a bridge, so the reference daemon carries
   over and a native backend waits for a stable Ze API.
+* 2026-11-02 (implementation) — child rows carry their owner; the announcer SPI is per endpoint
+  and announcers register through an extension registry; a separate `SubnetCarver` serves the
+  Instance path for both families while Routed mode keeps its carver; ConfigDrive is not
+  rebuilt on a running Instance, the metadata is current as of the last start; the IPv4 ipset
+  change is its own first commit.
