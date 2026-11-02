@@ -75,6 +75,10 @@ public interface NetworkModel {
     String CLOUD_DOMAIN_ID_FILE = "cloud-domain-id";
     String CLOUD_NAME_FILE = "cloud-name";
     String NIC_VLAN_MAPPING_FILE = "nic-vlan-mapping";
+    /** One line per subnet routed to the Instance: "<cidr> <mode> <nic mac>". */
+    String ROUTED_SUBNETS_FILE = "routed-subnets";
+    /** For BGP-mode subnets: the Instance's AS number and the peers it should talk to. */
+    String ROUTED_SUBNETS_BGP_FILE = "routed-subnets-bgp";
     int CONFIGDATA_DIR = 0;
     int CONFIGDATA_FILE = 1;
     int CONFIGDATA_CONTENT = 2;
@@ -90,7 +94,8 @@ public interface NetworkModel {
             .build();
 
     List<String> metadataFileNames = new ArrayList<>(Arrays.asList(SERVICE_OFFERING_FILE, AVAILABILITY_ZONE_FILE, LOCAL_HOSTNAME_FILE, LOCAL_IPV4_FILE, PUBLIC_HOSTNAME_FILE, PUBLIC_IPV4_FILE,
-            INSTANCE_ID_FILE, VM_ID_FILE, PUBLIC_KEYS_FILE, CLOUD_IDENTIFIER_FILE, CLOUD_NAME_FILE, HYPERVISOR_HOST_NAME_FILE));
+            INSTANCE_ID_FILE, VM_ID_FILE, PUBLIC_KEYS_FILE, CLOUD_IDENTIFIER_FILE, CLOUD_NAME_FILE, HYPERVISOR_HOST_NAME_FILE,
+            ROUTED_SUBNETS_FILE, ROUTED_SUBNETS_BGP_FILE));
 
     static final ConfigKey<Integer> MACIdentifier = new ConfigKey<>("Advanced",Integer.class, "mac.identifier", "0",
             "This value will be used while generating the mac addresses for isolated and shared networks. The hexadecimal equivalent value will be present at the 2nd octet of the mac address. Default value is zero (0) which means that the DB id of the zone will be used.", true, ConfigKey.Scope.Zone);

@@ -871,6 +871,23 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
         }
     }
 
+    @Override
+    public String getRoutedSubnetsMetadata(long vmId) {
+        StringBuilder sb = new StringBuilder();
+        Map<Long, RoutedSubnetOfferingVO> offerings = new HashMap<>();
+        for (NicVO nic : nicDao.listByVmId(vmId)) {
+            for (RoutedSubnet subnet : listRoutedSubnetsForNic(nic.getId())) {
+                if (!"Allocated".equals(subnet.getState()) || subnet.getOfferingId() == null) {
+                    continue;
+                }
+                RoutedSubnetOfferingVO offering = offerings.computeIfAbsent(subnet.getOfferingId(), offeringDao::findById);
+                String mode = offering == null ? "Static" : offering.getMode().name();
+                sb.append(subnet.getSubnet()).append(' ').append(mode).append(' ').append(nic.getMacAddress()).append('\n');
+            }
+        }
+        return sb.toString();
+    }
+
     // ---------------------------------------------------------------- lookups
 
     protected RoutedSubnetImpl findByUuid(String uuid) {

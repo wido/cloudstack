@@ -117,4 +117,10 @@ public interface RoutedSubnetService extends PluggableService, Configurable {
 
     /** Re-announces every Static-mode subnet on the network's NICs; called from network restart. */
     void reannounceRoutedSubnetsForNetwork(long networkId);
+
+    /**
+     * The routed-subnets metadata file of an Instance: one line per subnet routed to any of its
+     * NICs, "<cidr> <mode> <nic mac>", or an empty string when it has none.
+     */
+    String getRoutedSubnetsMetadata(long vmId);
 }

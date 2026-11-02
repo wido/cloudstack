@@ -332,4 +332,19 @@ public class RoutedSubnetManagerImplTest {
         Assert.assertNull(row.getOfferingId());
         Assert.assertNull(row.getAccountId());
     }
+
+    @Test
+    public void metadataListsEverySubnetWithModeAndMac() {
+        when(nicDao.listByVmId(VM_ID)).thenReturn(Collections.singletonList(nic));
+        when(nic.getMacAddress()).thenReturn("02:00:00:00:00:01");
+        Ipv4GuestSubnetNetworkMapVO v4 = new Ipv4GuestSubnetNetworkMapVO(POOL_ID, ZONE_ID, "10.0.0.0/29", null, Ipv4GuestSubnetNetworkMap.State.Allocated);
+        v4.setOfferingId(OFFERING_ID);
+        when(ipv4MapDao.listByNicId(NIC_ID)).thenReturn(Collections.singletonList(v4));
+        Ipv4GuestSubnetNetworkMapVO releasing = new Ipv4GuestSubnetNetworkMapVO(POOL_ID, ZONE_ID, "10.0.1.0/29", null, Ipv4GuestSubnetNetworkMap.State.Releasing);
+        releasing.setOfferingId(OFFERING_ID);
+        when(ipv4MapDao.listByNicId(NIC_ID)).thenReturn(Arrays.asList(v4, releasing));
+
+        Assert.assertEquals("10.0.0.0/29 BGP 02:00:00:00:00:01\n", manager.getRoutedSubnetsMetadata(VM_ID));
+        Assert.assertEquals("", manager.getRoutedSubnetsMetadata(VM_ID + 1));
+    }
 }

@@ -102,6 +102,7 @@ import com.cloud.network.router.VirtualRouter;
 import org.apache.cloudstack.extension.Extension;
 import org.apache.cloudstack.extension.ExtensionHelper;
 import org.apache.cloudstack.framework.extensions.network.NetworkExtensionElement;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 import com.cloud.network.rules.FirewallRule.Purpose;
 import com.cloud.network.rules.FirewallRuleVO;
 import com.cloud.network.rules.dao.PortForwardingRulesDao;
@@ -235,6 +236,8 @@ public class NetworkModelImpl extends ManagerBase implements NetworkModel, Confi
     NicSecondaryIpDao _nicSecondaryIpDao;
     @Inject
     NicNetworkMapDao _nicNetworkMapDao;
+    @Inject
+    RoutedSubnetService routedSubnetService;
     @Inject
     ApplicationLoadBalancerRuleDao _appLbRuleDao;
     @Inject
@@ -2950,6 +2953,10 @@ public class NetworkModelImpl extends ManagerBase implements NetworkModel, Confi
         vmData.add(new String[]{METATDATA_DIR, AVAILABILITY_ZONE_FILE, com.cloud.utils.StringUtils.unicodeEscape(zoneName)});
         vmData.add(new String[]{METATDATA_DIR, LOCAL_HOSTNAME_FILE, com.cloud.utils.StringUtils.unicodeEscape(vmHostName)});
         vmData.add(new String[]{METATDATA_DIR, LOCAL_IPV4_FILE, guestIpAddress});
+        String routedSubnets = routedSubnetService.getRoutedSubnetsMetadata(vmId);
+        if (StringUtils.isNotEmpty(routedSubnets)) {
+            vmData.add(new String[]{METATDATA_DIR, ROUTED_SUBNETS_FILE, routedSubnets});
+        }
 
         addUserDataDetailsToCommand(vmData, userDataDetails);
 

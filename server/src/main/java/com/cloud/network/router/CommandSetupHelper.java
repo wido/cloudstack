@@ -38,6 +38,7 @@ import org.apache.cloudstack.network.dao.BgpPeerDetailsDao;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 
@@ -182,6 +183,8 @@ public class CommandSetupHelper {
     private DomainRouterDao _routerDao;
     @Inject
     private NetworkModel _networkModel;
+    @Inject
+    private RoutedSubnetService _routedSubnetService;
     @Inject
     private VirtualMachineManager _itMgr;
     @Inject
@@ -1366,6 +1369,10 @@ public class CommandSetupHelper {
         cmd.addVmData("metadata", "availability-zone", StringUtils.unicodeEscape(zoneName));
         cmd.addVmData("metadata", "local-ipv4", vmPrivateIpAddress);
         cmd.addVmData("metadata", "local-hostname", StringUtils.unicodeEscape(vmName));
+        final String routedSubnets = _routedSubnetService.getRoutedSubnetsMetadata(vmId);
+        if (routedSubnets != null && !routedSubnets.isEmpty()) {
+            cmd.addVmData("metadata", NetworkModel.ROUTED_SUBNETS_FILE, routedSubnets);
+        }
 
         addUserDataDetailsToCommand(cmd, userDataDetails);
 
