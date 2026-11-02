@@ -60,6 +60,8 @@ import org.apache.cloudstack.api.command.user.network.ListNetworkOfferingsCmd;
 import org.apache.cloudstack.config.Configuration;
 import org.apache.cloudstack.region.PortableIp;
 import org.apache.cloudstack.region.PortableIpRange;
+import org.apache.cloudstack.api.command.admin.network.DedicateGuestNetworkIpv6PrefixCmd;
+import org.apache.cloudstack.api.command.admin.network.ReleaseDedicatedGuestNetworkIpv6PrefixCmd;
 
 import com.cloud.dc.DataCenter;
 import com.cloud.dc.DataCenterGuestIpv6Prefix;
@@ -247,6 +249,16 @@ public interface ConfigurationService {
      * Deletes an existing IPv6 prefix.
      */
     boolean deleteDataCenterGuestIpv6Prefix(DeleteGuestNetworkIpv6PrefixCmd cmd);
+
+    /**
+     * Dedicates an IPv6 prefix to a domain or an account.
+     */
+    DataCenterGuestIpv6Prefix dedicateDataCenterGuestIpv6Prefix(DedicateGuestNetworkIpv6PrefixCmd cmd);
+
+    /**
+     * Releases the dedication of an IPv6 prefix.
+     */
+    DataCenterGuestIpv6Prefix releaseDedicatedDataCenterGuestIpv6Prefix(ReleaseDedicatedGuestNetworkIpv6PrefixCmd cmd);
 
     /**
      * Edits a pod in the database. Will not allow you to edit pods that are being used anywhere in the system.

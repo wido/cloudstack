@@ -74,6 +74,9 @@ public class ListIpv4SubnetsForZoneCmd extends BaseListCmd {
             description = "the domain ID which the IPv4 subnet is dedicated to.")
     private Long domainId;
 
+    @Parameter(name = ApiConstants.PURPOSE, type = CommandType.STRING, since = "24.0.0", description = "list subnets of this purpose only: Network or Instance")
+    private String purpose;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -100,6 +103,10 @@ public class ListIpv4SubnetsForZoneCmd extends BaseListCmd {
 
     public Long getDomainId() {
         return domainId;
+    }
+
+    public String getPurpose() {
+        return purpose;
     }
 
     @Override

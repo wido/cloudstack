@@ -144,6 +144,8 @@ public class ApiConstants {
     public static final String CIDR_SIZE = "cidrsize";
 
     public static final String IP6_CIDR = "ip6cidr";
+    public static final String IP4_PREFIX_LENGTH = "ip4prefixlength";
+    public static final String IP6_PREFIX_LENGTH = "ip6prefixlength";
     public static final String CIDR_LIST = "cidrlist";
     public static final String DEST_CIDR_LIST = "destcidrlist";
     public static final String CLEANUP = "cleanup";

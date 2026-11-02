@@ -154,6 +154,9 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.cloudstack.api.command.admin.network.DedicateGuestNetworkIpv6PrefixCmd;
+import org.apache.cloudstack.api.command.admin.network.ReleaseDedicatedGuestNetworkIpv6PrefixCmd;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 
 import com.cloud.agent.AgentManager;
 import com.cloud.alert.AlertManager;
@@ -2435,12 +2438,26 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
                 throw new InvalidParameterValueException(String.format("IPv6 prefix %s overlaps with the existing IPv6 prefix %s", prefixNet, existingPrefixNet));
             }
         }
+        final SubnetPoolPurpose purpose;
+        try {
+            purpose = SubnetPoolPurpose.fromString(cmd.getPurpose());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidParameterValueException("purpose must be Network or Instance");
+        }
+        Long dedicatedDomainId = cmd.getDomainId();
+        Long dedicatedAccountId = null;
+        if (cmd.getAccountName() != null || (cmd.getProjectId() != null && cmd.getProjectId() != -1L)) {
+            dedicatedAccountId = _accountMgr.finalizeAccountId(cmd.getAccountName(), dedicatedDomainId, cmd.getProjectId(), false);
+            dedicatedDomainId = _accountMgr.getAccount(dedicatedAccountId).getDomainId();
+        }
+        final Long prefixDomainId = dedicatedDomainId;
+        final Long prefixAccountId = dedicatedAccountId;
         DataCenterGuestIpv6Prefix dataCenterGuestIpv6Prefix = null;
         try {
             dataCenterGuestIpv6Prefix = Transaction.execute(new TransactionCallback<>() {
                 @Override
                 public DataCenterGuestIpv6Prefix doInTransaction(TransactionStatus status) {
-                    DataCenterGuestIpv6PrefixVO dataCenterGuestIpv6PrefixVO = new DataCenterGuestIpv6PrefixVO(zoneId, prefix);
+                    DataCenterGuestIpv6PrefixVO dataCenterGuestIpv6PrefixVO = new DataCenterGuestIpv6PrefixVO(zoneId, prefix, purpose, prefixDomainId, prefixAccountId);
                     dataCenterGuestIpv6PrefixDao.persist(dataCenterGuestIpv6PrefixVO);
                     return dataCenterGuestIpv6PrefixVO;
                 }
@@ -2464,14 +2481,65 @@ public class ConfigurationManagerImpl extends ManagerBase implements Configurati
             }
             return prefixes;
         }
+        final SubnetPoolPurpose purpose = cmd.getPurpose() == null ? null : SubnetPoolPurpose.fromString(cmd.getPurpose());
         if (zoneId != null) {
             final DataCenterVO zone = _zoneDao.findById(zoneId);
             if (zone == null) {
                 throw new InvalidParameterValueException("Unable to find zone by id: " + zoneId);
             }
-            return dataCenterGuestIpv6PrefixDao.listByDataCenterId(zoneId);
+            return purpose == null ? dataCenterGuestIpv6PrefixDao.listByDataCenterId(zoneId) : dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zoneId, purpose);
         }
-        return dataCenterGuestIpv6PrefixDao.listAll();
+        List<DataCenterGuestIpv6PrefixVO> all = dataCenterGuestIpv6PrefixDao.listAll();
+        if (purpose == null) {
+            return all;
+        }
+        return all.stream().filter(p -> purpose.equals(p.getPurpose())).collect(Collectors.toList());
+    }
+
+    @Override
+    @ActionEvent(eventType = EventTypes.EVENT_GUEST_IP6_PREFIX_DEDICATE, eventDescription = "dedicating guest IPv6 prefix", async = true)
+    public DataCenterGuestIpv6Prefix dedicateDataCenterGuestIpv6Prefix(DedicateGuestNetworkIpv6PrefixCmd cmd) {
+        final DataCenterGuestIpv6PrefixVO prefix = dataCenterGuestIpv6PrefixDao.findById(cmd.getId());
+        if (prefix == null) {
+            throw new InvalidParameterValueException("Unable to find guest network IPv6 prefix by id: " + cmd.getId());
+        }
+        Long domainId = cmd.getDomainId();
+        Long accountId = null;
+        if (cmd.getAccountName() != null || (cmd.getProjectId() != null && cmd.getProjectId() != -1L)) {
+            accountId = _accountMgr.finalizeAccountId(cmd.getAccountName(), domainId, cmd.getProjectId(), false);
+            domainId = _accountMgr.getAccount(accountId).getDomainId();
+        }
+        if (domainId == null && accountId == null) {
+            throw new InvalidParameterValueException("A domain, an account or a project is required");
+        }
+        for (Ipv6GuestPrefixSubnetNetworkMapVO child : ipv6GuestPrefixSubnetNetworkMapDao.listByPrefix(prefix.getId())) {
+            if (child.getAccountId() == null) {
+                continue;
+            }
+            if (accountId != null && !accountId.equals(child.getAccountId())) {
+                throw new InvalidParameterValueException("The prefix has subnets in use by other accounts");
+            }
+            if (accountId == null && child.getDomainId() != null && !child.getDomainId().equals(domainId)) {
+                throw new InvalidParameterValueException("The prefix has subnets in use by other domains");
+            }
+        }
+        prefix.setDomainId(domainId);
+        prefix.setAccountId(accountId);
+        dataCenterGuestIpv6PrefixDao.update(prefix.getId(), prefix);
+        return dataCenterGuestIpv6PrefixDao.findById(prefix.getId());
+    }
+
+    @Override
+    @ActionEvent(eventType = EventTypes.EVENT_GUEST_IP6_PREFIX_RELEASE, eventDescription = "releasing dedicated guest IPv6 prefix", async = true)
+    public DataCenterGuestIpv6Prefix releaseDedicatedDataCenterGuestIpv6Prefix(ReleaseDedicatedGuestNetworkIpv6PrefixCmd cmd) {
+        final DataCenterGuestIpv6PrefixVO prefix = dataCenterGuestIpv6PrefixDao.findById(cmd.getId());
+        if (prefix == null) {
+            throw new InvalidParameterValueException("Unable to find guest network IPv6 prefix by id: " + cmd.getId());
+        }
+        prefix.setDomainId(null);
+        prefix.setAccountId(null);
+        dataCenterGuestIpv6PrefixDao.update(prefix.getId(), prefix);
+        return dataCenterGuestIpv6PrefixDao.findById(prefix.getId());
     }
 
     @Override

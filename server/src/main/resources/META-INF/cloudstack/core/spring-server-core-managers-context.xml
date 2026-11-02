@@ -380,6 +380,7 @@
     <bean id="resourceIconManager" class="com.cloud.resourceicon.ResourceIconManagerImpl" />
     <bean id="bucketApiServiceImpl" class="org.apache.cloudstack.storage.object.BucketApiServiceImpl" />
     <bean id="routedIpv4ManagerImpl" class="org.apache.cloudstack.network.RoutedIpv4ManagerImpl" />
+    <bean id="routedSubnetManagerImpl" class="org.apache.cloudstack.network.routedsubnet.RoutedSubnetManagerImpl" />
 
     <bean id="ResourceScheduleManagerImpl" class="org.apache.cloudstack.schedule.ResourceScheduleManagerImpl" />
     <bean id="VMScheduleWorker" class="org.apache.cloudstack.schedule.vm.VMScheduleWorker">

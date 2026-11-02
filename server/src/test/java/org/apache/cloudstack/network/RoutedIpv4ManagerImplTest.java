@@ -85,6 +85,7 @@ import org.apache.cloudstack.network.dao.BgpPeerDao;
 import org.apache.cloudstack.network.dao.BgpPeerDetailsDao;
 import org.apache.cloudstack.network.dao.BgpPeerNetworkMapDao;
 import org.apache.cloudstack.network.dao.Ipv4GuestSubnetNetworkMapDao;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 import org.apache.commons.collections.CollectionUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -252,7 +253,13 @@ public class RoutedIpv4ManagerImplTest {
         Assert.assertEquals(26, routedIpv4Manager.getCommands().size());
 
         overrideDefaultConfigValue(RoutedIpv4Manager.RoutedNetworkVpcEnabled, "_defaultValue", "false");
-        Assert.assertTrue(CollectionUtils.isEmpty(routedIpv4Manager.getCommands()));
+        overrideDefaultConfigValue(RoutedSubnetService.RoutedSubnetsEnabled, "_defaultValue", "false");
+        try {
+            Assert.assertTrue(CollectionUtils.isEmpty(routedIpv4Manager.getCommands()));
+        } finally {
+            overrideDefaultConfigValue(RoutedIpv4Manager.RoutedNetworkVpcEnabled, "_defaultValue", "true");
+            overrideDefaultConfigValue(RoutedSubnetService.RoutedSubnetsEnabled, "_defaultValue", "true");
+        }
     }
 
     private static void overrideDefaultConfigValue(final ConfigKey configKey, final String name, final Object o) throws IllegalAccessException, NoSuchFieldException {

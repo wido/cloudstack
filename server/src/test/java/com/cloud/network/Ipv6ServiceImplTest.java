@@ -34,6 +34,7 @@ import org.apache.cloudstack.api.response.Ipv6RouteResponse;
 import org.apache.cloudstack.api.response.VpcResponse;
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 import org.apache.commons.collections.CollectionUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -215,7 +216,7 @@ public class Ipv6ServiceImplTest {
     public void testNoPrefixesGetUsedTotalIpv6SubnetForZone() {
         final long zoneId = 1L;
         final List<DataCenterGuestIpv6PrefixVO> prefixes = new ArrayList<>();
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(zoneId)).thenReturn(prefixes);
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zoneId, SubnetPoolPurpose.Network)).thenReturn(prefixes);
         Pair<Integer, Integer> results = ipv6Service.getUsedTotalIpv6SubnetForZone(zoneId);
         Assert.assertEquals(0, results.first().intValue());
         Assert.assertEquals(0, results.second().intValue());
@@ -228,7 +229,7 @@ public class Ipv6ServiceImplTest {
         DataCenterGuestIpv6PrefixVO prefix = prepareMocksForIpv6Subnet();
         prefixes.add(prefix);
         prefixes.add(prefix);
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(zoneId)).thenReturn(prefixes);
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zoneId, SubnetPoolPurpose.Network)).thenReturn(prefixes);
         Pair<Integer, Integer> results = ipv6Service.getUsedTotalIpv6SubnetForZone(zoneId);
         Assert.assertEquals(4, results.first().intValue());
         Assert.assertEquals(8, results.second().intValue());
@@ -240,7 +241,7 @@ public class Ipv6ServiceImplTest {
         DataCenterVO zone = Mockito.mock(DataCenterVO.class);
         Mockito.when(zone.getId()).thenReturn(1L);
         final List<DataCenterGuestIpv6PrefixVO> prefixes = new ArrayList<>();
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(zone.getId())).thenReturn(prefixes);
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zone.getId(), SubnetPoolPurpose.Network)).thenReturn(prefixes);
         TransactionLegacy txn = TransactionLegacy.open("testNoPrefixesPreAllocateIpv6SubnetForNetwork");
         try {
             ipv6Service.preAllocateIpv6SubnetForNetwork(zone);
@@ -258,7 +259,7 @@ public class Ipv6ServiceImplTest {
         DataCenterGuestIpv6PrefixVO prefix = prepareMocksForIpv6Subnet();
         prefixes.add(prefix);
         Ipv6GuestPrefixSubnetNetworkMapVO ipv6GuestPrefixSubnetNetworkMap = new Ipv6GuestPrefixSubnetNetworkMapVO(1L, "fd17:5:8a43:e2a4::/64", null, Ipv6GuestPrefixSubnetNetworkMap.State.Free);
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(zone.getId())).thenReturn(prefixes);
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zone.getId(), SubnetPoolPurpose.Network)).thenReturn(prefixes);
         Mockito.when(ipv6GuestPrefixSubnetNetworkMapDao.findFirstAvailable(prefix.getId())).thenReturn(ipv6GuestPrefixSubnetNetworkMap);
         updatedPrefixSubnetMap.clear();
         try (TransactionLegacy txn = TransactionLegacy.open("testNoPrefixesPreAllocateIpv6SubnetForNetwork")) {
@@ -290,7 +291,7 @@ public class Ipv6ServiceImplTest {
             subnets.add(splits.next().toString());
         }
         prefixes.add(prefix);
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(zone.getId())).thenReturn(prefixes);
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zone.getId(), SubnetPoolPurpose.Network)).thenReturn(prefixes);
         Mockito.when(ipv6GuestPrefixSubnetNetworkMapDao.findFirstAvailable(prefix.getId())).thenReturn(null);
         Mockito.when(ipv6GuestPrefixSubnetNetworkMapDao.listUsedByPrefix(prefix.getId())).thenReturn(new ArrayList<>());
         persistedPrefixSubnetMap.clear();
@@ -606,7 +607,7 @@ public class Ipv6ServiceImplTest {
 
     @Test
     public void testCheckNetworkIpv6UpgradeForNoPrefixes() {
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(Mockito.anyLong())).thenReturn(new ArrayList<>());
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(Mockito.anyLong(), Mockito.eq(SubnetPoolPurpose.Network))).thenReturn(new ArrayList<>());
         try {
             ipv6Service.checkNetworkIpv6Upgrade(Mockito.mock(Network.class));
             Assert.fail("No ResourceAllocationException");
@@ -616,7 +617,7 @@ public class Ipv6ServiceImplTest {
     @Test
     public void testCheckNetworkIpv6UpgradeForNoIpv6Vlan() {
         final long zoneId = 1L;
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(Mockito.anyLong())).thenReturn(List.of(Mockito.mock(DataCenterGuestIpv6PrefixVO.class)));
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(Mockito.anyLong(), Mockito.eq(SubnetPoolPurpose.Network))).thenReturn(List.of(Mockito.mock(DataCenterGuestIpv6PrefixVO.class)));
         Network network = Mockito.mock(Network.class);
         Mockito.when(network.getDataCenterId()).thenReturn(zoneId);
         Mockito.when(network.getVpcId()).thenReturn(null);
@@ -637,7 +638,7 @@ public class Ipv6ServiceImplTest {
     @Test
     public void testCheckNetworkIpv6UpgradeForNetwork() {
         final long zoneId = 1L;
-        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterId(Mockito.anyLong())).thenReturn(List.of(Mockito.mock(DataCenterGuestIpv6PrefixVO.class)));
+        Mockito.when(dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(Mockito.anyLong(), Mockito.eq(SubnetPoolPurpose.Network))).thenReturn(List.of(Mockito.mock(DataCenterGuestIpv6PrefixVO.class)));
         Network network = Mockito.mock(Network.class);
         Mockito.when(network.getDataCenterId()).thenReturn(zoneId);
         Mockito.when(network.getVpcId()).thenReturn(null);

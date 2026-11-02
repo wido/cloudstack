@@ -56,6 +56,8 @@ import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.cloudstack.api.command.admin.network.DedicateGuestNetworkIpv6PrefixCmd;
+import org.apache.cloudstack.api.command.admin.network.ReleaseDedicatedGuestNetworkIpv6PrefixCmd;
 
 import com.cloud.configuration.Resource;
 import com.cloud.dc.DataCenter;
@@ -293,6 +295,8 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
         cmdList.add(CreateGuestNetworkIpv6PrefixCmd.class);
         cmdList.add(ListGuestNetworkIpv6PrefixesCmd.class);
         cmdList.add(DeleteGuestNetworkIpv6PrefixCmd.class);
+        cmdList.add(DedicateGuestNetworkIpv6PrefixCmd.class);
+        cmdList.add(ReleaseDedicatedGuestNetworkIpv6PrefixCmd.class);
         cmdList.add(CreateIpv6FirewallRuleCmd.class);
         cmdList.add(ListIpv6FirewallRulesCmd.class);
         cmdList.add(UpdateIpv6FirewallRuleCmd.class);

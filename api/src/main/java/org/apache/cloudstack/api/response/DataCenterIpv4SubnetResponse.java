@@ -69,6 +69,10 @@ public class DataCenterIpv4SubnetResponse extends BaseResponse {
     @Param(description = "the project name of the IPv4 subnet")
     private String projectName;
 
+    @SerializedName(ApiConstants.PURPOSE)
+    @Param(description = "what the subnets carved from this one are for: Network or Instance", since = "24.0.0")
+    private String purpose;
+
     public void setId(String id) {
         this.id = id;
     }
@@ -147,5 +151,9 @@ public class DataCenterIpv4SubnetResponse extends BaseResponse {
 
     public String getProjectName() {
         return projectName;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
     }
 }

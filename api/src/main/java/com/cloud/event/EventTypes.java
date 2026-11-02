@@ -51,6 +51,7 @@ import org.apache.cloudstack.usage.Usage;
 import org.apache.cloudstack.schedule.ResourceSchedule;
 import org.apache.cloudstack.vm.bootgroup.InstanceBootGroup;
 import org.apache.cloudstack.vm.bootgroup.readiness.InstanceBootGroupReadinessRule;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetOffering;
 
 import com.cloud.dc.DataCenter;
 import com.cloud.dc.DataCenterGuestIpv6Prefix;
@@ -466,6 +467,8 @@ public class EventTypes {
 
     public static final String EVENT_GUEST_IP6_PREFIX_CREATE = "GUEST.IP6.PREFIX.CREATE";
     public static final String EVENT_GUEST_IP6_PREFIX_DELETE = "GUEST.IP6.PREFIX.DELETE";
+    public static final String EVENT_GUEST_IP6_PREFIX_DEDICATE = "GUEST.IP6.PREFIX.DEDICATE";
+    public static final String EVENT_GUEST_IP6_PREFIX_RELEASE = "GUEST.IP6.PREFIX.RELEASE";
 
     public static final String EVENT_STORAGE_IP_RANGE_CREATE = "STORAGE.IP.RANGE.CREATE";
     public static final String EVENT_STORAGE_IP_RANGE_DELETE = "STORAGE.IP.RANGE.DELETE";
@@ -848,6 +851,11 @@ public class EventTypes {
     public static final String EVENT_BGP_PEER_DELETE = "BGP.PEER.DELETE";
     public static final String EVENT_BGP_PEER_DEDICATE = "BGP.PEER.DEDICATE";
     public static final String EVENT_BGP_PEER_RELEASE = "BGP.PEER.RELEASE";
+
+    // Routed Subnets for Instances
+    public static final String EVENT_ROUTED_SUBNET_OFFERING_CREATE = "ROUTED.SUBNET.OFFERING.CREATE";
+    public static final String EVENT_ROUTED_SUBNET_OFFERING_UPDATE = "ROUTED.SUBNET.OFFERING.UPDATE";
+    public static final String EVENT_ROUTED_SUBNET_OFFERING_DELETE = "ROUTED.SUBNET.OFFERING.DELETE";
     public static final String EVENT_NETWORK_BGP_PEER_UPDATE = "NETWORK.BGP.PEER.UPDATE";
     public static final String EVENT_VPC_BGP_PEER_UPDATE = "VPC.BGP.PEER.UPDATE";
 
@@ -1184,6 +1192,8 @@ public class EventTypes {
 
         entityEventDetails.put(EVENT_GUEST_IP6_PREFIX_CREATE, DataCenterGuestIpv6Prefix.class);
         entityEventDetails.put(EVENT_GUEST_IP6_PREFIX_DELETE, DataCenterGuestIpv6Prefix.class);
+        entityEventDetails.put(EVENT_GUEST_IP6_PREFIX_DEDICATE, DataCenterGuestIpv6Prefix.class);
+        entityEventDetails.put(EVENT_GUEST_IP6_PREFIX_RELEASE, DataCenterGuestIpv6Prefix.class);
 
         entityEventDetails.put(EVENT_STORAGE_IP_RANGE_CREATE, StorageNetworkIpRange.class);
         entityEventDetails.put(EVENT_STORAGE_IP_RANGE_DELETE, StorageNetworkIpRange.class);
@@ -1445,6 +1455,9 @@ public class EventTypes {
         entityEventDetails.put(EVENT_BGP_PEER_DELETE, BgpPeer.class);
         entityEventDetails.put(EVENT_BGP_PEER_DEDICATE, BgpPeer.class);
         entityEventDetails.put(EVENT_BGP_PEER_RELEASE, BgpPeer.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_OFFERING_CREATE, RoutedSubnetOffering.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_OFFERING_UPDATE, RoutedSubnetOffering.class);
+        entityEventDetails.put(EVENT_ROUTED_SUBNET_OFFERING_DELETE, RoutedSubnetOffering.class);
 
         // SharedFS
         entityEventDetails.put(EVENT_SHAREDFS_CREATE, SharedFS.class);

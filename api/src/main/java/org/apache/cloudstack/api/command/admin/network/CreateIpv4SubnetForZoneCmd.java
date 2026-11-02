@@ -70,6 +70,10 @@ public class CreateIpv4SubnetForZoneCmd extends BaseAsyncCmd {
     @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, description = "domain ID of the account owning the IPv4 subnet")
     private Long domainId;
 
+    @Parameter(name = ApiConstants.PURPOSE, type = CommandType.STRING, since = "24.0.0",
+            description = "what the subnets carved from this one are for: Network (Routed-mode guest networks, the default) or Instance (subnets routed to Instances)")
+    private String purpose;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -93,6 +97,10 @@ public class CreateIpv4SubnetForZoneCmd extends BaseAsyncCmd {
 
     public Long getDomainId() {
         return domainId;
+    }
+
+    public String getPurpose() {
+        return purpose;
     }
 
     @Override

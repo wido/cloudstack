@@ -57,6 +57,30 @@ public class DataCenterGuestIpv6PrefixResponse extends BaseResponse {
     @Param(description = "Date when this IPv6 prefix was created." )
     private Date created;
 
+    @SerializedName(ApiConstants.PURPOSE)
+    @Param(description = "what the subnets carved from the prefix are for: Network or Instance", since = "24.0.0")
+    private String purpose;
+
+    @SerializedName(ApiConstants.ACCOUNT)
+    @Param(description = "the account the prefix is dedicated to", since = "24.0.0")
+    private String accountName;
+
+    @SerializedName(ApiConstants.DOMAIN_ID)
+    @Param(description = "the id of the domain the prefix is dedicated to", since = "24.0.0")
+    private String domainId;
+
+    @SerializedName(ApiConstants.DOMAIN)
+    @Param(description = "the name of the domain the prefix is dedicated to", since = "24.0.0")
+    private String domainName;
+
+    @SerializedName(ApiConstants.PROJECT_ID)
+    @Param(description = "the id of the project the prefix is dedicated to", since = "24.0.0")
+    private String projectId;
+
+    @SerializedName(ApiConstants.PROJECT)
+    @Param(description = "the name of the project the prefix is dedicated to", since = "24.0.0")
+    private String projectName;
+
     public void setId(String id) {
         this.id = id;
     }
@@ -83,5 +107,29 @@ public class DataCenterGuestIpv6PrefixResponse extends BaseResponse {
 
     public void setCreated(Date created) {
         this.created = created;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
+    }
+
+    public void setAccountName(String accountName) {
+        this.accountName = accountName;
+    }
+
+    public void setDomainId(String domainId) {
+        this.domainId = domainId;
+    }
+
+    public void setDomainName(String domainName) {
+        this.domainName = domainName;
+    }
+
+    public void setProjectId(String projectId) {
+        this.projectId = projectId;
+    }
+
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
     }
 }

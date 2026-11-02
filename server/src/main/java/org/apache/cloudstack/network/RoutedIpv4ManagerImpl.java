@@ -101,6 +101,8 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
@@ -167,7 +169,7 @@ public class RoutedIpv4ManagerImpl extends ComponentLifecycleBase implements Rou
     @Override
     public List<Class<?>> getCommands() {
         final List<Class<?>> cmdList = new ArrayList<Class<?>>();
-        if (!RoutedNetworkVpcEnabled.value()) {
+        if (!RoutedNetworkVpcEnabled.value() && !RoutedSubnetService.RoutedSubnetsEnabled.value()) {
             return cmdList;
         }
         cmdList.add(CreateIpv4SubnetForZoneCmd.class);
@@ -216,7 +218,9 @@ public class RoutedIpv4ManagerImpl extends ComponentLifecycleBase implements Rou
             throw new InvalidParameterValueException("Invalid IPv4 subnet: " + subnet);
         }
 
-        checkIfRoutedNetworkVpcEnabled(zoneId);
+        if (!SubnetPoolPurpose.Instance.equals(SubnetPoolPurpose.fromString(cmd.getPurpose()))) {
+            checkIfRoutedNetworkVpcEnabled(zoneId);
+        }
 
         // check conflicts
         List<DataCenterIpv4GuestSubnetVO> existingSubnets = dataCenterIpv4GuestSubnetDao.listByDataCenterId(zoneId);
@@ -235,7 +239,13 @@ public class RoutedIpv4ManagerImpl extends ComponentLifecycleBase implements Rou
             domainId = account.getDomainId();
         }
 
-        DataCenterIpv4GuestSubnetVO subnetVO = new DataCenterIpv4GuestSubnetVO(zoneId, NetUtils.transformCidr(subnet));
+        SubnetPoolPurpose purpose;
+        try {
+            purpose = SubnetPoolPurpose.fromString(cmd.getPurpose());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidParameterValueException("purpose must be Network or Instance");
+        }
+        DataCenterIpv4GuestSubnetVO subnetVO = new DataCenterIpv4GuestSubnetVO(zoneId, NetUtils.transformCidr(subnet), purpose);
         if (domainId != null) {
             subnetVO.setDomainId(domainId);
         }
@@ -281,6 +291,7 @@ public class RoutedIpv4ManagerImpl extends ComponentLifecycleBase implements Rou
             }
         }
 
+        response.setPurpose(subnet.getPurpose() == null ? SubnetPoolPurpose.Network.name() : subnet.getPurpose().name());
         response.setObjectName("zoneipv4subnet");
         return response;
     }
@@ -372,6 +383,9 @@ public class RoutedIpv4ManagerImpl extends ComponentLifecycleBase implements Rou
         if (accountName != null || (projectId != null && projectId != -1L)) {
             Long accountId= accountManager.finalizeAccountId(accountName, domainId, projectId, false);
             sc.addAnd("accountId", SearchCriteria.Op.EQ, accountId);
+        }
+        if (cmd.getPurpose() != null) {
+            sc.addAnd("purpose", SearchCriteria.Op.EQ, SubnetPoolPurpose.fromString(cmd.getPurpose()));
         }
         // search via dataCenterIpv4GuestSubnetDao
         return dataCenterIpv4GuestSubnetDao.search(sc, null);

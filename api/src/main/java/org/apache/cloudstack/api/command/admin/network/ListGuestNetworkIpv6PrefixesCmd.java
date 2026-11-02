@@ -51,6 +51,9 @@ public class ListGuestNetworkIpv6PrefixesCmd extends BaseListCmd {
             description = "UUID of zone to which the IPv6 prefix belongs to.")
     private Long zoneId;
 
+    @Parameter(name = ApiConstants.PURPOSE, type = CommandType.STRING, since = "24.0.0", description = "list prefixes of this purpose only: Network or Instance")
+    private String purpose;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -61,6 +64,10 @@ public class ListGuestNetworkIpv6PrefixesCmd extends BaseListCmd {
 
     public Long getZoneId() {
         return zoneId;
+    }
+
+    public String getPurpose() {
+        return purpose;
     }
 
     @Override

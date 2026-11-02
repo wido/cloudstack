@@ -27,6 +27,8 @@ import org.apache.cloudstack.api.Parameter;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.response.DataCenterGuestIpv6PrefixResponse;
 import org.apache.cloudstack.api.response.ZoneResponse;
+import org.apache.cloudstack.api.response.DomainResponse;
+import org.apache.cloudstack.api.response.ProjectResponse;
 
 import com.cloud.dc.DataCenterGuestIpv6Prefix;
 import com.cloud.event.EventTypes;
@@ -63,6 +65,19 @@ public class CreateGuestNetworkIpv6PrefixCmd extends BaseAsyncCmd {
             description = "The /56 or higher IPv6 CIDR for network prefix.")
     private String prefix;
 
+    @Parameter(name = ApiConstants.PURPOSE, type = CommandType.STRING, since = "24.0.0",
+            description = "what the subnets carved from the prefix are for: Network (guest networks, the default) or Instance (subnets routed to Instances)")
+    private String purpose;
+
+    @Parameter(name = ApiConstants.ACCOUNT, type = CommandType.STRING, since = "24.0.0", description = "account the prefix is dedicated to")
+    private String accountName;
+
+    @Parameter(name = ApiConstants.PROJECT_ID, type = CommandType.UUID, entityType = ProjectResponse.class, since = "24.0.0", description = "project the prefix is dedicated to")
+    private Long projectId;
+
+    @Parameter(name = ApiConstants.DOMAIN_ID, type = CommandType.UUID, entityType = DomainResponse.class, since = "24.0.0", description = "domain the prefix is dedicated to, or the domain of the account")
+    private Long domainId;
+
     /////////////////////////////////////////////////////
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
@@ -74,6 +89,22 @@ public class CreateGuestNetworkIpv6PrefixCmd extends BaseAsyncCmd {
 
     public String getPrefix() {
         return prefix;
+    }
+
+    public String getPurpose() {
+        return purpose;
+    }
+
+    public String getAccountName() {
+        return accountName;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public Long getDomainId() {
+        return domainId;
     }
 
     @Override

@@ -54,7 +54,9 @@ import org.apache.cloudstack.api.command.admin.config.UpdateCfgCmd;
 import org.apache.cloudstack.api.command.admin.network.CloneNetworkOfferingCmd;
 import org.apache.cloudstack.api.command.admin.network.CreateGuestNetworkIpv6PrefixCmd;
 import org.apache.cloudstack.api.command.admin.network.CreateManagementNetworkIpRangeCmd;
+import org.apache.cloudstack.api.command.admin.network.DedicateGuestNetworkIpv6PrefixCmd;
 import org.apache.cloudstack.api.command.admin.network.DeleteGuestNetworkIpv6PrefixCmd;
+import org.apache.cloudstack.api.command.admin.network.ReleaseDedicatedGuestNetworkIpv6PrefixCmd;
 import org.apache.cloudstack.api.command.admin.network.DeleteManagementNetworkIpRangeCmd;
 import org.apache.cloudstack.api.command.admin.network.DeleteNetworkOfferingCmd;
 import org.apache.cloudstack.api.command.admin.network.ListGuestNetworkIpv6PrefixesCmd;
@@ -267,6 +269,16 @@ public class MockConfigurationManagerImpl extends ManagerBase implements Configu
     public boolean deleteDataCenterGuestIpv6Prefix(DeleteGuestNetworkIpv6PrefixCmd cmd) {
         // TODO Auto-generated method stub
         return true;
+    }
+
+    @Override
+    public DataCenterGuestIpv6Prefix dedicateDataCenterGuestIpv6Prefix(DedicateGuestNetworkIpv6PrefixCmd cmd) {
+        return null;
+    }
+
+    @Override
+    public DataCenterGuestIpv6Prefix releaseDedicatedDataCenterGuestIpv6Prefix(ReleaseDedicatedGuestNetworkIpv6PrefixCmd cmd) {
+        return null;
     }
 
     /* (non-Javadoc)

@@ -245,6 +245,7 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 
 import com.cloud.agent.api.VgpuTypesInfo;
 import com.cloud.api.query.ResourceIdSupport;
@@ -1572,6 +1573,28 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
         response.setAvailableSubnets(total - used);
         response.setTotalSubnets(total);
         response.setCreated(prefix.getCreated());
+        response.setPurpose(prefix.getPurpose() == null ? SubnetPoolPurpose.Network.name() : prefix.getPurpose().name());
+        if (prefix.getDomainId() != null) {
+            Domain domain = ApiDBUtils.findDomainById(prefix.getDomainId());
+            if (domain != null) {
+                response.setDomainId(domain.getUuid());
+                response.setDomainName(domain.getName());
+            }
+        }
+        if (prefix.getAccountId() != null) {
+            Account account = ApiDBUtils.findAccountById(prefix.getAccountId());
+            if (account != null) {
+                if (account.getType() == Account.Type.PROJECT) {
+                    Project project = ApiDBUtils.findProjectByProjectAccountId(account.getId());
+                    if (project != null) {
+                        response.setProjectId(project.getUuid());
+                        response.setProjectName(project.getName());
+                    }
+                } else {
+                    response.setAccountName(account.getAccountName());
+                }
+            }
+        }
         return response;
     }
 
