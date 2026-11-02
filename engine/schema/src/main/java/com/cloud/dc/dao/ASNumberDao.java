@@ -38,4 +38,6 @@ public interface ASNumberDao extends GenericDao<ASNumberVO, Long> {
     ASNumberVO findByZoneAndVpcId(long zoneId, long vpcId);
 
     int removeASRangeNumbers(long rangeId);
+
+    ASNumberVO findByZoneAndVmId(long zoneId, long vmId);
 }

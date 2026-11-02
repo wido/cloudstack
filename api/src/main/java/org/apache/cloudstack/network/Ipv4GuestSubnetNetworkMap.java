@@ -46,4 +46,14 @@ public interface Ipv4GuestSubnetNetworkMap extends Identity, InternalIdentity {
 
     State getState();
 
+    /** The NIC whose address the subnet is routed to; null unless the subnet is routed to an Instance. */
+    Long getNicId();
+
+    /** The Routed Subnet Offering the subnet was assigned with; null for Routed-mode network subnets. */
+    Long getOfferingId();
+
+    Long getAccountId();
+
+    Long getDomainId();
+
 }

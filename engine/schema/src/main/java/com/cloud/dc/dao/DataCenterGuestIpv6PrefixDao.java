@@ -20,9 +20,23 @@ package com.cloud.dc.dao;
 import java.util.List;
 
 import com.cloud.dc.DataCenterGuestIpv6PrefixVO;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
+
 import com.cloud.utils.db.GenericDao;
 
 public interface DataCenterGuestIpv6PrefixDao extends GenericDao<DataCenterGuestIpv6PrefixVO, Long> {
 
     List<DataCenterGuestIpv6PrefixVO> listByDataCenterId(long dcId);
+
+    List<DataCenterGuestIpv6PrefixVO> listByDataCenterIdAndPurpose(long dcId, SubnetPoolPurpose purpose);
+
+    List<DataCenterGuestIpv6PrefixVO> listByDataCenterIdAndAccountId(long dcId, long accountId, SubnetPoolPurpose purpose);
+
+    List<DataCenterGuestIpv6PrefixVO> listByDataCenterIdAndDomainId(long dcId, long domainId, SubnetPoolPurpose purpose);
+
+    List<DataCenterGuestIpv6PrefixVO> listNonDedicatedByDataCenterId(long dcId, SubnetPoolPurpose purpose);
+
+    List<DataCenterGuestIpv6PrefixVO> listByAccountId(long accountId);
+
+    List<DataCenterGuestIpv6PrefixVO> listByDomainId(long domainId);
 }

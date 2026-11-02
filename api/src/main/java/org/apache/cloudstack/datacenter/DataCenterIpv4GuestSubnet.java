@@ -22,6 +22,7 @@ import java.util.Date;
 import org.apache.cloudstack.acl.InfrastructureEntity;
 import org.apache.cloudstack.api.Identity;
 import org.apache.cloudstack.api.InternalIdentity;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 
 public interface DataCenterIpv4GuestSubnet extends InfrastructureEntity, InternalIdentity, Identity {
     Long getDataCenterId();
@@ -33,4 +34,6 @@ public interface DataCenterIpv4GuestSubnet extends InfrastructureEntity, Interna
     Long getAccountId();
 
     Date getCreated();
+
+    SubnetPoolPurpose getPurpose();
 }

@@ -52,6 +52,7 @@ import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.engine.orchestration.service.NetworkOrchestrationService;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.managed.context.ManagedContextRunnable;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -329,7 +330,7 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
     public Pair<Integer, Integer> getUsedTotalIpv6SubnetForZone(long zoneId) {
         int used = 0;
         int total = 0;
-        List<DataCenterGuestIpv6PrefixVO> prefixes = dataCenterGuestIpv6PrefixDao.listByDataCenterId(zoneId);
+        List<DataCenterGuestIpv6PrefixVO> prefixes = dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zoneId, SubnetPoolPurpose.Network);
         for (DataCenterGuestIpv6PrefixVO prefix : prefixes) {
             Pair<Integer, Integer> usedTotal = getUsedTotalIpv6SubnetForPrefix(prefix);
             used += usedTotal.first();
@@ -340,7 +341,7 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
 
     public Pair<String, String> preAllocateIpv6SubnetForNetwork(DataCenter zone) throws ResourceAllocationException {
         return Transaction.execute((TransactionCallbackWithException<Pair<String, String>, ResourceAllocationException>) status -> {
-            List<DataCenterGuestIpv6PrefixVO> prefixes = dataCenterGuestIpv6PrefixDao.listByDataCenterId(zone.getId());
+            List<DataCenterGuestIpv6PrefixVO> prefixes = dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(zone.getId(), SubnetPoolPurpose.Network);
             if (CollectionUtils.isEmpty(prefixes)) {
                 logger.error("IPv6 prefixes not found for the zone: {}", zone);
                 throw new ResourceAllocationException("Unable to allocate IPv6 network", Resource.ResourceType.network);
@@ -498,7 +499,7 @@ public class Ipv6ServiceImpl extends ComponentLifecycleBase implements Ipv6Servi
 
     @Override
     public void checkNetworkIpv6Upgrade(Network network) throws InsufficientAddressCapacityException, ResourceAllocationException {
-        List<DataCenterGuestIpv6PrefixVO> prefixes = dataCenterGuestIpv6PrefixDao.listByDataCenterId(network.getDataCenterId());
+        List<DataCenterGuestIpv6PrefixVO> prefixes = dataCenterGuestIpv6PrefixDao.listByDataCenterIdAndPurpose(network.getDataCenterId(), SubnetPoolPurpose.Network);
         if (CollectionUtils.isEmpty(prefixes)) {
             logger.error("IPv6 prefixes not found for the zone: {}", zoneDao.findById(network.getDataCenterId()));
             throw new ResourceAllocationException("Unable to allocate IPv6 network", Resource.ResourceType.network);

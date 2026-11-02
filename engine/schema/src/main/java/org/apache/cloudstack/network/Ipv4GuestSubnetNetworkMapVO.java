@@ -61,6 +61,18 @@ public class Ipv4GuestSubnetNetworkMapVO implements Ipv4GuestSubnetNetworkMap {
     @Column(name = "state")
     private State state;
 
+    @Column(name = "nic_id")
+    private Long nicId;
+
+    @Column(name = "offering_id")
+    private Long offeringId;
+
+    @Column(name = "account_id")
+    private Long accountId;
+
+    @Column(name = "domain_id")
+    private Long domainId;
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "allocated")
     Date allocated;
@@ -75,7 +87,7 @@ public class Ipv4GuestSubnetNetworkMapVO implements Ipv4GuestSubnetNetworkMap {
         uuid = UUID.randomUUID().toString();
     }
 
-    protected Ipv4GuestSubnetNetworkMapVO(Long parentId, Long dataCenterId, String subnet, Long networkId, Ipv4GuestSubnetNetworkMap.State state) {
+    public Ipv4GuestSubnetNetworkMapVO(Long parentId, Long dataCenterId, String subnet, Long networkId, Ipv4GuestSubnetNetworkMap.State state) {
         this.parentId = parentId;
         this.dataCenterId = dataCenterId;
         this.subnet = subnet;
@@ -152,5 +164,41 @@ public class Ipv4GuestSubnetNetworkMapVO implements Ipv4GuestSubnetNetworkMap {
     @Override
     public Date getCreated() {
         return created;
+    }
+
+    @Override
+    public Long getNicId() {
+        return nicId;
+    }
+
+    public void setNicId(Long nicId) {
+        this.nicId = nicId;
+    }
+
+    @Override
+    public Long getOfferingId() {
+        return offeringId;
+    }
+
+    public void setOfferingId(Long offeringId) {
+        this.offeringId = offeringId;
+    }
+
+    @Override
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+
+    @Override
+    public Long getDomainId() {
+        return domainId;
+    }
+
+    public void setDomainId(Long domainId) {
+        this.domainId = domainId;
     }
 }

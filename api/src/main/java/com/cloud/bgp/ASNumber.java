@@ -33,6 +33,9 @@ public interface ASNumber extends InfrastructureEntity, InternalIdentity, Identi
     boolean isAllocated();
     Long getNetworkId();
     Long getVpcId();
+
+    /** The Instance the AS number is allocated to, for Instances that announce routed subnets themselves. */
+    Long getVmId();
     Date getCreated();
     Date getRemoved();
 }

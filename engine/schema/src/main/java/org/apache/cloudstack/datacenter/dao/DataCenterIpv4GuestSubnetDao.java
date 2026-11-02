@@ -17,6 +17,8 @@
 
 package org.apache.cloudstack.datacenter.dao;
 
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
+
 import com.cloud.utils.db.GenericDao;
 import org.apache.cloudstack.datacenter.DataCenterIpv4GuestSubnetVO;
 
@@ -30,4 +32,12 @@ public interface DataCenterIpv4GuestSubnetDao extends GenericDao<DataCenterIpv4G
     List<DataCenterIpv4GuestSubnetVO> listNonDedicatedByDataCenterId(long dcId);
     List<DataCenterIpv4GuestSubnetVO> listByAccountId(long accountId);
     List<DataCenterIpv4GuestSubnetVO> listByDomainId(long domainId);
+
+    List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndPurpose(long dcId, SubnetPoolPurpose purpose);
+
+    List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndAccountId(long dcId, long accountId, SubnetPoolPurpose purpose);
+
+    List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndDomainId(long dcId, long domainId, SubnetPoolPurpose purpose);
+
+    List<DataCenterIpv4GuestSubnetVO> listNonDedicatedByDataCenterId(long dcId, SubnetPoolPurpose purpose);
 }

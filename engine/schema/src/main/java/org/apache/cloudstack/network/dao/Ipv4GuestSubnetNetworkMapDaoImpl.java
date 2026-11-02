@@ -32,6 +32,7 @@ import com.cloud.network.dao.NetworkVO;
 import com.cloud.utils.db.DB;
 import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.GenericDaoBase;
+import com.cloud.utils.db.GenericSearchBuilder;
 import com.cloud.utils.db.JoinBuilder;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
@@ -47,6 +48,10 @@ public class Ipv4GuestSubnetNetworkMapDaoImpl extends GenericDaoBase<Ipv4GuestSu
     protected SearchBuilder<Ipv4GuestSubnetNetworkMapVO> SubnetSearch;
     protected SearchBuilder<Ipv4GuestSubnetNetworkMapVO> StatesSearch;
     protected SearchBuilder<Ipv4GuestSubnetNetworkMapVO> DomainAccountNeqSearch;
+    protected SearchBuilder<Ipv4GuestSubnetNetworkMapVO> NicIdSearch;
+    protected SearchBuilder<Ipv4GuestSubnetNetworkMapVO> AccountIdSearch;
+    protected SearchBuilder<Ipv4GuestSubnetNetworkMapVO> OfferingIdSearch;
+    protected GenericSearchBuilder<Ipv4GuestSubnetNetworkMapVO, Long> AccountCountSearch;
 
     @Inject
     NetworkDao networkDao;
@@ -85,6 +90,24 @@ public class Ipv4GuestSubnetNetworkMapDaoImpl extends GenericDaoBase<Ipv4GuestSu
         DomainAccountNeqSearch.join("network", networkSearchBuilder, networkSearchBuilder.entity().getId(),
                 DomainAccountNeqSearch.entity().getNetworkId(), JoinBuilder.JoinType.INNER);
         DomainAccountNeqSearch.done();
+
+        NicIdSearch = createSearchBuilder();
+        NicIdSearch.and("nicId", NicIdSearch.entity().getNicId(), SearchCriteria.Op.EQ);
+        NicIdSearch.done();
+
+        AccountIdSearch = createSearchBuilder();
+        AccountIdSearch.and("accountId", AccountIdSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
+        AccountIdSearch.done();
+
+        OfferingIdSearch = createSearchBuilder();
+        OfferingIdSearch.and("offeringId", OfferingIdSearch.entity().getOfferingId(), SearchCriteria.Op.EQ);
+        OfferingIdSearch.done();
+
+        AccountCountSearch = createSearchBuilder(Long.class);
+        AccountCountSearch.select(null, SearchCriteria.Func.COUNT, null);
+        AccountCountSearch.and("accountId", AccountCountSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
+        AccountCountSearch.and("state", AccountCountSearch.entity().getState(), SearchCriteria.Op.IN);
+        AccountCountSearch.done();
     }
 
     @Override
@@ -170,5 +193,42 @@ public class Ipv4GuestSubnetNetworkMapDaoImpl extends GenericDaoBase<Ipv4GuestSu
         SearchCriteria<Ipv4GuestSubnetNetworkMapVO> sc = NoParentSearch.create();
         sc.setParameters("dataCenterId", dataCenterId);
         return listBy(sc, null);
+    }
+
+    @Override
+    public List<Ipv4GuestSubnetNetworkMapVO> listByNicId(long nicId) {
+        SearchCriteria<Ipv4GuestSubnetNetworkMapVO> sc = NicIdSearch.create();
+        sc.setParameters("nicId", nicId);
+        return listBy(sc);
+    }
+
+    @Override
+    public List<Ipv4GuestSubnetNetworkMapVO> listBySubnet(String subnet) {
+        SearchCriteria<Ipv4GuestSubnetNetworkMapVO> sc = SubnetSearch.create();
+        sc.setParameters("subnet", subnet);
+        return listBy(sc);
+    }
+
+    @Override
+    public List<Ipv4GuestSubnetNetworkMapVO> listByAccountId(long accountId) {
+        SearchCriteria<Ipv4GuestSubnetNetworkMapVO> sc = AccountIdSearch.create();
+        sc.setParameters("accountId", accountId);
+        return listBy(sc);
+    }
+
+    @Override
+    public List<Ipv4GuestSubnetNetworkMapVO> listByOfferingId(long offeringId) {
+        SearchCriteria<Ipv4GuestSubnetNetworkMapVO> sc = OfferingIdSearch.create();
+        sc.setParameters("offeringId", offeringId);
+        return listBy(sc);
+    }
+
+    @Override
+    public long countAllocatedByAccountId(long accountId) {
+        SearchCriteria<Long> sc = AccountCountSearch.create();
+        sc.setParameters("accountId", accountId);
+        sc.setParameters("state", (Object[]) new Ipv4GuestSubnetNetworkMap.State[]{Ipv4GuestSubnetNetworkMap.State.Allocated, Ipv4GuestSubnetNetworkMap.State.Releasing});
+        List<Long> result = customSearch(sc, null);
+        return CollectionUtils.isNotEmpty(result) && result.get(0) != null ? result.get(0) : 0L;
     }
 }

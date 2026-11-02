@@ -22,10 +22,14 @@ import java.util.UUID;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 
 import com.cloud.utils.db.GenericDao;
 
@@ -52,6 +56,10 @@ public class DataCenterIpv4GuestSubnetVO implements DataCenterIpv4GuestSubnet {
     @Column(name = "account_id")
     Long accountId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose")
+    SubnetPoolPurpose purpose = SubnetPoolPurpose.Network;
+
     @Column(name = GenericDao.CREATED_COLUMN)
     private Date created;
 
@@ -63,6 +71,11 @@ public class DataCenterIpv4GuestSubnetVO implements DataCenterIpv4GuestSubnet {
         this.dataCenterId = dcId;
         this.subnet = subnet;
         this.created = new Date();
+    }
+
+    public DataCenterIpv4GuestSubnetVO(long dcId, String subnet, SubnetPoolPurpose purpose) {
+        this(dcId, subnet);
+        this.purpose = purpose;
     }
 
     protected DataCenterIpv4GuestSubnetVO() {
@@ -119,5 +132,12 @@ public class DataCenterIpv4GuestSubnetVO implements DataCenterIpv4GuestSubnet {
         return created;
     }
 
+    @Override
+    public SubnetPoolPurpose getPurpose() {
+        return purpose;
+    }
 
+    public void setPurpose(SubnetPoolPurpose purpose) {
+        this.purpose = purpose;
+    }
 }

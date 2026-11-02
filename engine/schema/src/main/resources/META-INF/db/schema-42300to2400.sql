@@ -268,3 +268,64 @@ CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.nics', 'multi_network', 'tinyint(1) 
 CALL `cloud_usage`.`IDEMPOTENT_ADD_COLUMN`('cloud_usage.usage_network_offering', 'network_id', 'bigint(20) unsigned DEFAULT NULL COMMENT "associated network this usage row belongs to"');
 
 CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.disk_offering', 'error_policy', 'VARCHAR(16) DEFAULT ''report'' COMMENT ''disk error policy (report/stop/ignore/enospace) used by KVM hypervisor''');
+
+-- Routed Subnets for Instances (docs/design/routed-subnets.md).
+-- Pools gain a purpose, the IPv6 prefix pool gains dedication, the carved children can point at a
+-- NIC and a Routed Subnet Offering and record their owner, and an AS number can belong to an Instance.
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.dc_ip4_guest_subnets', 'purpose', 'varchar(32) NOT NULL DEFAULT "Network" COMMENT "What the subnets carved from this pool serve: Network (Routed mode guest networks) or Instance (subnets routed to Instances)"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.dc_ip6_guest_prefix', 'purpose', 'varchar(32) NOT NULL DEFAULT "Network" COMMENT "What the subnets carved from this prefix serve: Network (guest networks) or Instance (subnets routed to Instances)"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.dc_ip6_guest_prefix', 'domain_id', 'bigint unsigned DEFAULT NULL COMMENT "domain the prefix is dedicated to"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.dc_ip6_guest_prefix', 'account_id', 'bigint unsigned DEFAULT NULL COMMENT "account the prefix is dedicated to"');
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip4_guest_subnet_network_map', 'nic_id', 'bigint unsigned DEFAULT NULL COMMENT "NIC whose address the subnet is routed to"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip4_guest_subnet_network_map', 'offering_id', 'bigint unsigned DEFAULT NULL COMMENT "Routed Subnet Offering the subnet was assigned with"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip4_guest_subnet_network_map', 'account_id', 'bigint unsigned DEFAULT NULL COMMENT "owner of a subnet routed to an Instance"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip4_guest_subnet_network_map', 'domain_id', 'bigint unsigned DEFAULT NULL COMMENT "domain of the owner of a subnet routed to an Instance"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip6_guest_prefix_subnet_network_map', 'nic_id', 'bigint unsigned DEFAULT NULL COMMENT "NIC whose address the subnet is routed to"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip6_guest_prefix_subnet_network_map', 'offering_id', 'bigint unsigned DEFAULT NULL COMMENT "Routed Subnet Offering the subnet was assigned with"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip6_guest_prefix_subnet_network_map', 'account_id', 'bigint unsigned DEFAULT NULL COMMENT "owner of a subnet routed to an Instance"');
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.ip6_guest_prefix_subnet_network_map', 'domain_id', 'bigint unsigned DEFAULT NULL COMMENT "domain of the owner of a subnet routed to an Instance"');
+
+CALL `cloud`.`IDEMPOTENT_ADD_COLUMN`('cloud.as_number', 'vm_id', 'bigint unsigned DEFAULT NULL COMMENT "Instance this AS Number is associated with"');
+
+CREATE TABLE IF NOT EXISTS `cloud`.`routed_subnet_offerings` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `uuid` varchar(40) DEFAULT NULL,
+    `name` varchar(255) NOT NULL,
+    `display_text` varchar(1024) DEFAULT NULL,
+    `ip4_prefix_length` int unsigned DEFAULT NULL COMMENT 'length of the IPv4 subnet handed out, NULL for none',
+    `ip6_prefix_length` int unsigned DEFAULT NULL COMMENT 'length of the IPv6 subnet handed out, NULL for none',
+    `mode` varchar(16) NOT NULL COMMENT 'Static: the management server announces the route; BGP: the Instance does',
+    `state` varchar(32) NOT NULL DEFAULT 'Active',
+    `data_center_id` bigint unsigned DEFAULT NULL COMMENT 'zone the offering is limited to, NULL for all',
+    `domain_id` bigint unsigned DEFAULT NULL COMMENT 'domain the offering is visible in, NULL for all',
+    `created` datetime NOT NULL,
+    `removed` datetime DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_routed_subnet_offerings__uuid` (`uuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `cloud`.`routed_subnet_offering_details` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `offering_id` bigint unsigned NOT NULL,
+    `name` varchar(255) NOT NULL,
+    `value` varchar(1024) DEFAULT NULL,
+    `display` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Whether the detail is shown to the end user',
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_routed_subnet_offering_details__offering_id` FOREIGN KEY (`offering_id`) REFERENCES `routed_subnet_offerings` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One row per (subnet, announcer endpoint): what each endpoint has confirmed it holds.
+CREATE TABLE IF NOT EXISTS `cloud`.`routed_subnet_announcements` (
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+    `address_family` tinyint unsigned NOT NULL COMMENT '4 or 6: which subnet map table subnet_map_id refers to',
+    `subnet_map_id` bigint unsigned NOT NULL COMMENT 'id in ip4_guest_subnet_network_map or ip6_guest_prefix_subnet_network_map',
+    `endpoint` varchar(255) NOT NULL,
+    `announced` datetime DEFAULT NULL COMMENT 'when the endpoint confirmed the announcement, NULL while it does not hold it',
+    `last_error` varchar(1024) DEFAULT NULL,
+    `last_attempt` datetime DEFAULT NULL,
+    `created` datetime NOT NULL,
+    `removed` datetime DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `i_routed_subnet_announcements__subnet` (`address_family`, `subnet_map_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

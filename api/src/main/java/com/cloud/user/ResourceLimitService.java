@@ -57,6 +57,12 @@ public interface ResourceLimitService {
             "The default maximum number of GPU devices that can be used for a domain", false);
     static final ConfigKey<Long> DefaultMaxProjectGpus = new ConfigKey<>("Project Defaults",Long.class,"max.project.gpus","20",
             "The default maximum number of GPU devices that can be used for a project", false);
+    static final ConfigKey<Long> DefaultMaxAccountRoutedSubnets = new ConfigKey<>("Account Defaults", Long.class, "max.account.routed.subnets", "20",
+            "The default maximum number of subnets that can be routed to the Instances of an account", false);
+    static final ConfigKey<Long> DefaultMaxDomainRoutedSubnets = new ConfigKey<>("Domain Defaults", Long.class, "max.domain.routed.subnets", "20",
+            "The default maximum number of subnets that can be routed to the Instances of a domain", false);
+    static final ConfigKey<Long> DefaultMaxProjectRoutedSubnets = new ConfigKey<>("Project Defaults", Long.class, "max.project.routed.subnets", "20",
+            "The default maximum number of subnets that can be routed to the Instances of a project", false);
 
     static final List<ResourceType> HostTagsSupportingTypes = List.of(ResourceType.user_vm, ResourceType.cpu, ResourceType.memory, ResourceType.gpu);
     static final List<ResourceType> StorageTagsSupportingTypes = List.of(ResourceType.volume, ResourceType.primary_storage);

@@ -35,4 +35,14 @@ public interface Ipv4GuestSubnetNetworkMapDao extends GenericDao<Ipv4GuestSubnet
     List<Ipv4GuestSubnetNetworkMapVO> findSubnetsInStates(Ipv4GuestSubnetNetworkMap.State... states);
     void deleteByParentId(long parentId);
     List<Ipv4GuestSubnetNetworkMapVO> listAllNoParentByDataCenterId(Long dataCenterId);
+    List<Ipv4GuestSubnetNetworkMapVO> listByNicId(long nicId);
+
+    /** Every row with this subnet string; more than one when it is anycast. */
+    List<Ipv4GuestSubnetNetworkMapVO> listBySubnet(String subnet);
+
+    List<Ipv4GuestSubnetNetworkMapVO> listByAccountId(long accountId);
+
+    List<Ipv4GuestSubnetNetworkMapVO> listByOfferingId(long offeringId);
+
+    long countAllocatedByAccountId(long accountId);
 }

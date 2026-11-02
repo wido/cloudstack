@@ -22,6 +22,7 @@ import java.util.Date;
 import org.apache.cloudstack.acl.InfrastructureEntity;
 import org.apache.cloudstack.api.Identity;
 import org.apache.cloudstack.api.InternalIdentity;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 
 public interface DataCenterGuestIpv6Prefix extends InfrastructureEntity, InternalIdentity, Identity {
     Long getDataCenterId();
@@ -29,4 +30,10 @@ public interface DataCenterGuestIpv6Prefix extends InfrastructureEntity, Interna
     String getPrefix();
 
     Date getCreated();
+
+    SubnetPoolPurpose getPurpose();
+
+    Long getDomainId();
+
+    Long getAccountId();
 }

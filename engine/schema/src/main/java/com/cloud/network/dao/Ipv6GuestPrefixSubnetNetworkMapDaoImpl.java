@@ -29,6 +29,7 @@ import com.cloud.network.Ipv6GuestPrefixSubnetNetworkMapVO;
 import com.cloud.utils.db.DB;
 import com.cloud.utils.db.Filter;
 import com.cloud.utils.db.GenericDaoBase;
+import com.cloud.utils.db.GenericSearchBuilder;
 import com.cloud.utils.db.SearchBuilder;
 import com.cloud.utils.db.SearchCriteria;
 
@@ -41,6 +42,11 @@ public class Ipv6GuestPrefixSubnetNetworkMapDaoImpl extends GenericDaoBase<Ipv6G
     protected SearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO> NetworkIdSearch;
     protected SearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO> SubnetSearch;
     protected SearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO> StatesSearch;
+    protected SearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO> PrefixStateSizeSearch;
+    protected SearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO> NicIdSearch;
+    protected SearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO> AccountIdSearch;
+    protected SearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO> OfferingIdSearch;
+    protected GenericSearchBuilder<Ipv6GuestPrefixSubnetNetworkMapVO, Long> AccountCountSearch;
 
     @PostConstruct
     public void init() {
@@ -60,6 +66,30 @@ public class Ipv6GuestPrefixSubnetNetworkMapDaoImpl extends GenericDaoBase<Ipv6G
         StatesSearch = createSearchBuilder();
         StatesSearch.and("state", StatesSearch.entity().getState(), SearchCriteria.Op.IN);
         StatesSearch.done();
+
+        PrefixStateSizeSearch = createSearchBuilder();
+        PrefixStateSizeSearch.and("prefixId", PrefixStateSizeSearch.entity().getPrefixId(), SearchCriteria.Op.EQ);
+        PrefixStateSizeSearch.and("state", PrefixStateSizeSearch.entity().getState(), SearchCriteria.Op.IN);
+        PrefixStateSizeSearch.and("subnet", PrefixStateSizeSearch.entity().getSubnet(), SearchCriteria.Op.LIKE);
+        PrefixStateSizeSearch.done();
+
+        NicIdSearch = createSearchBuilder();
+        NicIdSearch.and("nicId", NicIdSearch.entity().getNicId(), SearchCriteria.Op.EQ);
+        NicIdSearch.done();
+
+        AccountIdSearch = createSearchBuilder();
+        AccountIdSearch.and("accountId", AccountIdSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
+        AccountIdSearch.done();
+
+        OfferingIdSearch = createSearchBuilder();
+        OfferingIdSearch.and("offeringId", OfferingIdSearch.entity().getOfferingId(), SearchCriteria.Op.EQ);
+        OfferingIdSearch.done();
+
+        AccountCountSearch = createSearchBuilder(Long.class);
+        AccountCountSearch.select(null, SearchCriteria.Func.COUNT, null);
+        AccountCountSearch.and("accountId", AccountCountSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
+        AccountCountSearch.and("state", AccountCountSearch.entity().getState(), SearchCriteria.Op.IN);
+        AccountCountSearch.done();
     }
 
     @Override
@@ -107,5 +137,60 @@ public class Ipv6GuestPrefixSubnetNetworkMapDaoImpl extends GenericDaoBase<Ipv6G
         SearchCriteria<Ipv6GuestPrefixSubnetNetworkMapVO> sc = PrefixIdSearch.create();
         sc.setParameters("prefixId", prefixId);
         remove(sc);
+    }
+
+    @Override
+    public List<Ipv6GuestPrefixSubnetNetworkMapVO> listByPrefix(long prefixId) {
+        SearchCriteria<Ipv6GuestPrefixSubnetNetworkMapVO> sc = PrefixIdSearch.create();
+        sc.setParameters("prefixId", prefixId);
+        return listBy(sc);
+    }
+
+    @Override
+    public Ipv6GuestPrefixSubnetNetworkMapVO findFirstAvailable(long prefixId, long cidrSize) {
+        SearchCriteria<Ipv6GuestPrefixSubnetNetworkMapVO> sc = PrefixStateSizeSearch.create();
+        sc.setParameters("prefixId", prefixId);
+        sc.setParameters("subnet", "%/" + cidrSize);
+        sc.setParameters("state", (Object[]) new Ipv6GuestPrefixSubnetNetworkMap.State[]{Ipv6GuestPrefixSubnetNetworkMap.State.Free});
+        Filter searchFilter = new Filter(Ipv6GuestPrefixSubnetNetworkMapVO.class, "id", true, null, 1L);
+        List<Ipv6GuestPrefixSubnetNetworkMapVO> list = listBy(sc, searchFilter);
+        return CollectionUtils.isNotEmpty(list) ? list.get(0) : null;
+    }
+
+    @Override
+    public List<Ipv6GuestPrefixSubnetNetworkMapVO> listByNicId(long nicId) {
+        SearchCriteria<Ipv6GuestPrefixSubnetNetworkMapVO> sc = NicIdSearch.create();
+        sc.setParameters("nicId", nicId);
+        return listBy(sc);
+    }
+
+    @Override
+    public List<Ipv6GuestPrefixSubnetNetworkMapVO> listBySubnet(String subnet) {
+        SearchCriteria<Ipv6GuestPrefixSubnetNetworkMapVO> sc = SubnetSearch.create();
+        sc.setParameters("subnet", subnet);
+        return listBy(sc);
+    }
+
+    @Override
+    public List<Ipv6GuestPrefixSubnetNetworkMapVO> listByAccountId(long accountId) {
+        SearchCriteria<Ipv6GuestPrefixSubnetNetworkMapVO> sc = AccountIdSearch.create();
+        sc.setParameters("accountId", accountId);
+        return listBy(sc);
+    }
+
+    @Override
+    public List<Ipv6GuestPrefixSubnetNetworkMapVO> listByOfferingId(long offeringId) {
+        SearchCriteria<Ipv6GuestPrefixSubnetNetworkMapVO> sc = OfferingIdSearch.create();
+        sc.setParameters("offeringId", offeringId);
+        return listBy(sc);
+    }
+
+    @Override
+    public long countAllocatedByAccountId(long accountId) {
+        SearchCriteria<Long> sc = AccountCountSearch.create();
+        sc.setParameters("accountId", accountId);
+        sc.setParameters("state", (Object[]) new Ipv6GuestPrefixSubnetNetworkMap.State[]{Ipv6GuestPrefixSubnetNetworkMap.State.Allocated, Ipv6GuestPrefixSubnetNetworkMap.State.Releasing});
+        List<Long> result = customSearch(sc, null);
+        return CollectionUtils.isNotEmpty(result) && result.get(0) != null ? result.get(0) : 0L;
     }
 }

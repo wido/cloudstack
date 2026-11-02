@@ -39,6 +39,7 @@ public class ASNumberDaoImpl extends GenericDaoBase<ASNumberVO, Long> implements
         asNumberSearch.and("asNumber", asNumberSearch.entity().getAsNumber(), SearchCriteria.Op.EQ);
         asNumberSearch.and("networkId", asNumberSearch.entity().getNetworkId(), SearchCriteria.Op.EQ);
         asNumberSearch.and("vpcId", asNumberSearch.entity().getVpcId(), SearchCriteria.Op.EQ);
+        asNumberSearch.and("vmId", asNumberSearch.entity().getVmId(), SearchCriteria.Op.EQ);
         asNumberSearch.and("accountId", asNumberSearch.entity().getAccountId(), SearchCriteria.Op.EQ);
         asNumberSearch.and("domainId", asNumberSearch.entity().getDomainId(), SearchCriteria.Op.EQ);
         asNumberSearch.done();
@@ -129,6 +130,14 @@ public class ASNumberDaoImpl extends GenericDaoBase<ASNumberVO, Long> implements
         SearchCriteria<ASNumberVO> sc = asNumberSearch.create();
         sc.setParameters("zoneId", zoneId);
         sc.setParameters("vpcId", vpcId);
+        return findOneBy(sc);
+    }
+
+    @Override
+    public ASNumberVO findByZoneAndVmId(long zoneId, long vmId) {
+        SearchCriteria<ASNumberVO> sc = asNumberSearch.create();
+        sc.setParameters("zoneId", zoneId);
+        sc.setParameters("vmId", vmId);
         return findOneBy(sc);
     }
 

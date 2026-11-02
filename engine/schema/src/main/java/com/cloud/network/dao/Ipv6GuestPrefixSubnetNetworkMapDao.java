@@ -30,4 +30,20 @@ public interface Ipv6GuestPrefixSubnetNetworkMapDao extends GenericDao<Ipv6Guest
     Ipv6GuestPrefixSubnetNetworkMapVO findBySubnet(String subnet);
     List<Ipv6GuestPrefixSubnetNetworkMapVO> findPrefixesInStates(Ipv6GuestPrefixSubnetNetworkMap.State... states);
     void deleteByPrefixId(long prefixId);
+
+    List<Ipv6GuestPrefixSubnetNetworkMapVO> listByPrefix(long prefixId);
+
+    /** The first Free child of the prefix with exactly this prefix length, if any. */
+    Ipv6GuestPrefixSubnetNetworkMapVO findFirstAvailable(long prefixId, long cidrSize);
+
+    List<Ipv6GuestPrefixSubnetNetworkMapVO> listByNicId(long nicId);
+
+    /** Every row with this subnet string; more than one when it is anycast. */
+    List<Ipv6GuestPrefixSubnetNetworkMapVO> listBySubnet(String subnet);
+
+    List<Ipv6GuestPrefixSubnetNetworkMapVO> listByAccountId(long accountId);
+
+    List<Ipv6GuestPrefixSubnetNetworkMapVO> listByOfferingId(long offeringId);
+
+    long countAllocatedByAccountId(long accountId);
 }

@@ -55,6 +55,18 @@ public class Ipv6GuestPrefixSubnetNetworkMapVO implements Ipv6GuestPrefixSubnetN
     @Column(name = "state")
     private State state;
 
+    @Column(name = "nic_id")
+    private Long nicId;
+
+    @Column(name = "offering_id")
+    private Long offeringId;
+
+    @Column(name = "account_id")
+    private Long accountId;
+
+    @Column(name = "domain_id")
+    private Long domainId;
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "updated")
     Date updated;
@@ -69,7 +81,7 @@ public class Ipv6GuestPrefixSubnetNetworkMapVO implements Ipv6GuestPrefixSubnetN
         uuid = UUID.randomUUID().toString();
     }
 
-    protected Ipv6GuestPrefixSubnetNetworkMapVO(long prefixId, String subnet, Long networkId, Ipv6GuestPrefixSubnetNetworkMap.State state) {
+    public Ipv6GuestPrefixSubnetNetworkMapVO(long prefixId, String subnet, Long networkId, Ipv6GuestPrefixSubnetNetworkMap.State state) {
         this.prefixId = prefixId;
         this.subnet = subnet;
         this.networkId = networkId;
@@ -125,5 +137,41 @@ public class Ipv6GuestPrefixSubnetNetworkMapVO implements Ipv6GuestPrefixSubnetN
 
     public Date getCreated() {
         return created;
+    }
+
+    @Override
+    public Long getNicId() {
+        return nicId;
+    }
+
+    public void setNicId(Long nicId) {
+        this.nicId = nicId;
+    }
+
+    @Override
+    public Long getOfferingId() {
+        return offeringId;
+    }
+
+    public void setOfferingId(Long offeringId) {
+        this.offeringId = offeringId;
+    }
+
+    @Override
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+
+    @Override
+    public Long getDomainId() {
+        return domainId;
+    }
+
+    public void setDomainId(Long domainId) {
+        this.domainId = domainId;
     }
 }

@@ -24,6 +24,7 @@ public interface Ipv6GuestPrefixSubnetNetworkMap extends Identity, InternalIdent
     enum State {
         Allocating, // The subnet will be assigned to a network
         Allocated, // The subnet is in use.
+        Releasing, // The subnet is being released.
         Free // The subnet is ready to be allocated.
     }
 
@@ -34,4 +35,14 @@ public interface Ipv6GuestPrefixSubnetNetworkMap extends Identity, InternalIdent
     Long getNetworkId();
 
     State getState();
+
+    /** The NIC whose address the subnet is routed to; null unless the subnet is routed to an Instance. */
+    Long getNicId();
+
+    /** The Routed Subnet Offering the subnet was assigned with; null for network subnets. */
+    Long getOfferingId();
+
+    Long getAccountId();
+
+    Long getDomainId();
 }

@@ -22,10 +22,14 @@ import java.util.UUID;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 
 import com.cloud.utils.db.GenericDao;
 
@@ -46,6 +50,16 @@ public class DataCenterGuestIpv6PrefixVO implements DataCenterGuestIpv6Prefix {
     @Column(name = "prefix")
     private String prefix;
 
+    @Column(name = "domain_id")
+    Long domainId;
+
+    @Column(name = "account_id")
+    Long accountId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose")
+    SubnetPoolPurpose purpose = SubnetPoolPurpose.Network;
+
     @Column(name = GenericDao.CREATED_COLUMN)
     private Date created;
 
@@ -57,6 +71,13 @@ public class DataCenterGuestIpv6PrefixVO implements DataCenterGuestIpv6Prefix {
         this.dataCenterId = dcId;
         this.prefix = prefix;
         this.created = new Date();
+    }
+
+    public DataCenterGuestIpv6PrefixVO(long dcId, String prefix, SubnetPoolPurpose purpose, Long domainId, Long accountId) {
+        this(dcId, prefix);
+        this.purpose = purpose;
+        this.domainId = domainId;
+        this.accountId = accountId;
     }
 
     protected DataCenterGuestIpv6PrefixVO() {
@@ -95,5 +116,30 @@ public class DataCenterGuestIpv6PrefixVO implements DataCenterGuestIpv6Prefix {
         return created;
     }
 
+    @Override
+    public SubnetPoolPurpose getPurpose() {
+        return purpose;
+    }
 
+    public void setPurpose(SubnetPoolPurpose purpose) {
+        this.purpose = purpose;
+    }
+
+    @Override
+    public Long getDomainId() {
+        return domainId;
+    }
+
+    public void setDomainId(Long domainId) {
+        this.domainId = domainId;
+    }
+
+    @Override
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
 }

@@ -21,6 +21,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
+
 import com.cloud.dc.DataCenterGuestIpv6PrefixVO;
 import com.cloud.utils.db.DB;
 import com.cloud.utils.db.GenericDaoBase;
@@ -38,6 +40,57 @@ public class DataCenterGuestIpv6PrefixDaoImpl extends GenericDaoBase<DataCenterG
     public List<DataCenterGuestIpv6PrefixVO> listByDataCenterId(long dcId) {
         QueryBuilder<DataCenterGuestIpv6PrefixVO> sc = QueryBuilder.create(DataCenterGuestIpv6PrefixVO.class);
         sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterGuestIpv6PrefixVO> listByDataCenterIdAndPurpose(long dcId, SubnetPoolPurpose purpose) {
+        QueryBuilder<DataCenterGuestIpv6PrefixVO> sc = QueryBuilder.create(DataCenterGuestIpv6PrefixVO.class);
+        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterGuestIpv6PrefixVO> listByDataCenterIdAndAccountId(long dcId, long accountId, SubnetPoolPurpose purpose) {
+        QueryBuilder<DataCenterGuestIpv6PrefixVO> sc = QueryBuilder.create(DataCenterGuestIpv6PrefixVO.class);
+        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.EQ, accountId);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterGuestIpv6PrefixVO> listByDataCenterIdAndDomainId(long dcId, long domainId, SubnetPoolPurpose purpose) {
+        QueryBuilder<DataCenterGuestIpv6PrefixVO> sc = QueryBuilder.create(DataCenterGuestIpv6PrefixVO.class);
+        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        sc.and(sc.entity().getDomainId(), SearchCriteria.Op.EQ, domainId);
+        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.NULL);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterGuestIpv6PrefixVO> listNonDedicatedByDataCenterId(long dcId, SubnetPoolPurpose purpose) {
+        QueryBuilder<DataCenterGuestIpv6PrefixVO> sc = QueryBuilder.create(DataCenterGuestIpv6PrefixVO.class);
+        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        sc.and(sc.entity().getDomainId(), SearchCriteria.Op.NULL);
+        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.NULL);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterGuestIpv6PrefixVO> listByAccountId(long accountId) {
+        QueryBuilder<DataCenterGuestIpv6PrefixVO> sc = QueryBuilder.create(DataCenterGuestIpv6PrefixVO.class);
+        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.EQ, accountId);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterGuestIpv6PrefixVO> listByDomainId(long domainId) {
+        QueryBuilder<DataCenterGuestIpv6PrefixVO> sc = QueryBuilder.create(DataCenterGuestIpv6PrefixVO.class);
+        sc.and(sc.entity().getDomainId(), SearchCriteria.Op.EQ, domainId);
         return sc.list();
     }
 }

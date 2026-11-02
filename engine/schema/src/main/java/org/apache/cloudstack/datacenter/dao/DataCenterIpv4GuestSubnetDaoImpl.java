@@ -20,6 +20,7 @@ package org.apache.cloudstack.datacenter.dao;
 import java.util.List;
 
 import org.apache.cloudstack.datacenter.DataCenterIpv4GuestSubnetVO;
+import org.apache.cloudstack.network.routedsubnet.SubnetPoolPurpose;
 import org.springframework.stereotype.Component;
 
 import com.cloud.utils.db.DB;
@@ -41,29 +42,56 @@ public class DataCenterIpv4GuestSubnetDaoImpl extends GenericDaoBase<DataCenterI
         return sc.list();
     }
 
+    /** The dedication lookups without a purpose serve Routed-mode networks, the pools' original use. */
     @Override
     public List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndAccountId(long dcId, long accountId) {
-        QueryBuilder<DataCenterIpv4GuestSubnetVO> sc = QueryBuilder.create(DataCenterIpv4GuestSubnetVO.class);
-        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
-        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.EQ, accountId);
-        return sc.list();
+        return listByDataCenterIdAndAccountId(dcId, accountId, SubnetPoolPurpose.Network);
     }
 
     @Override
     public List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndDomainId(long dcId, long domainId) {
-        QueryBuilder<DataCenterIpv4GuestSubnetVO> sc = QueryBuilder.create(DataCenterIpv4GuestSubnetVO.class);
-        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
-        sc.and(sc.entity().getDomainId(), SearchCriteria.Op.EQ, domainId);
-        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.NULL);
-        return sc.list();
+        return listByDataCenterIdAndDomainId(dcId, domainId, SubnetPoolPurpose.Network);
     }
 
     @Override
     public List<DataCenterIpv4GuestSubnetVO> listNonDedicatedByDataCenterId(long dcId) {
+        return listNonDedicatedByDataCenterId(dcId, SubnetPoolPurpose.Network);
+    }
+
+    @Override
+    public List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndPurpose(long dcId, SubnetPoolPurpose purpose) {
+        QueryBuilder<DataCenterIpv4GuestSubnetVO> sc = QueryBuilder.create(DataCenterIpv4GuestSubnetVO.class);
+        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndAccountId(long dcId, long accountId, SubnetPoolPurpose purpose) {
+        QueryBuilder<DataCenterIpv4GuestSubnetVO> sc = QueryBuilder.create(DataCenterIpv4GuestSubnetVO.class);
+        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.EQ, accountId);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterIpv4GuestSubnetVO> listByDataCenterIdAndDomainId(long dcId, long domainId, SubnetPoolPurpose purpose) {
+        QueryBuilder<DataCenterIpv4GuestSubnetVO> sc = QueryBuilder.create(DataCenterIpv4GuestSubnetVO.class);
+        sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
+        sc.and(sc.entity().getDomainId(), SearchCriteria.Op.EQ, domainId);
+        sc.and(sc.entity().getAccountId(), SearchCriteria.Op.NULL);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
+        return sc.list();
+    }
+
+    @Override
+    public List<DataCenterIpv4GuestSubnetVO> listNonDedicatedByDataCenterId(long dcId, SubnetPoolPurpose purpose) {
         QueryBuilder<DataCenterIpv4GuestSubnetVO> sc = QueryBuilder.create(DataCenterIpv4GuestSubnetVO.class);
         sc.and(sc.entity().getDataCenterId(), SearchCriteria.Op.EQ, dcId);
         sc.and(sc.entity().getDomainId(), SearchCriteria.Op.NULL);
         sc.and(sc.entity().getAccountId(), SearchCriteria.Op.NULL);
+        sc.and(sc.entity().getPurpose(), SearchCriteria.Op.EQ, purpose);
         return sc.list();
     }
 
