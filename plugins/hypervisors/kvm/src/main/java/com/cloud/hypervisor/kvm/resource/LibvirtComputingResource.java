@@ -271,6 +271,7 @@ import com.cloud.utils.ssh.SshHelper;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.VirtualMachine.PowerState;
 import com.cloud.vm.VmDetailConstants;
+import com.cloud.agent.api.ModifyRoutedSubnetCommand;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -5825,6 +5826,9 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         if (BridgeVifDriver.isDirectRoutedNic(nic)) {
             cmd.add("--directrouted");
         }
+        if (nic.getRoutedSubnets() != null && !nic.getRoutedSubnets().isEmpty()) {
+            cmd.add("--subnets", String.join(",", nic.getRoutedSubnets()));
+        }
         final String result = cmd.execute();
         if (result != null) {
             return false;
@@ -5954,6 +5958,11 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
 
     public boolean addNetworkRules(final String vmName, final String vmId, final String guestIP, final String guestIP6, final String sig, final String seq, final String mac, final String rules, final String vif, final String brname,
                                    final String secIps, final boolean directRouted) {
+        return addNetworkRules(vmName, vmId, guestIP, guestIP6, sig, seq, mac, rules, vif, brname, secIps, directRouted, null);
+    }
+
+    public boolean addNetworkRules(final String vmName, final String vmId, final String guestIP, final String guestIP6, final String sig, final String seq, final String mac, final String rules, final String vif, final String brname,
+                                   final String secIps, final boolean directRouted, final String routedSubnets) {
         if (!canBridgeFirewall) {
             return false;
         }
@@ -5981,11 +5990,64 @@ public class LibvirtComputingResource extends ServerResourceBase implements Serv
         if (directRouted) {
             cmd.add("--directrouted");
         }
+        if (StringUtils.isNotBlank(routedSubnets)) {
+            cmd.add("--subnets", routedSubnets);
+        }
         final String result = cmd.execute();
         if (result != null) {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Adds or removes one subnet routed to a running Instance's NIC. On a Direct Routed host the
+     * route "subnet via the NIC address" goes into the kernel through modifymacip.sh, whatever
+     * canBridgeFirewall says; the security group ipsets follow when rules apply to the Instance.
+     */
+    public boolean configureRoutedSubnet(final Connect conn, final ModifyRoutedSubnetCommand command) {
+        final String vmName = command.getVmName();
+        if (command.isDirectRouted()) {
+            if (macIpPath == null) {
+                LOGGER.warn("Unable to find modifymacip.sh, cannot route {} to {}", command.getSubnet(), vmName);
+                return false;
+            }
+            String brName = null;
+            for (final InterfaceDef intf : getInterfaces(conn, vmName)) {
+                if (command.getVmMac().equalsIgnoreCase(intf.getMacAddress())) {
+                    brName = intf.getBrName();
+                    break;
+                }
+            }
+            if (brName == null) {
+                LOGGER.warn("Unable to find the interface of {} with MAC {}", vmName, command.getVmMac());
+                return false;
+            }
+            final Script cmd = new Script(macIpPath, timeout, LOGGER);
+            cmd.add("-o", command.isAdd() ? "add" : "delete");
+            cmd.add("-b", brName);
+            cmd.add("-m", command.getVmMac());
+            cmd.add("-r", command.getSubnet() + "," + command.getNextHop() + "," + command.getMetric());
+            final String result = cmd.execute();
+            if (result != null) {
+                LOGGER.warn("Failed to {} route for {} via {} on {}: {}", command.isAdd() ? "add" : "remove", command.getSubnet(), command.getNextHop(), vmName, result);
+                return false;
+            }
+        }
+        if (!command.isApplySecurityGroupRules()) {
+            return true;
+        }
+        if (!canBridgeFirewall) {
+            LOGGER.warn("Security group rules were requested for subnet {} of {} but this host cannot bridge firewall; the ipset was not updated", command.getSubnet(), vmName);
+            return false;
+        }
+        final Script cmd = new Script(securityGroupPath, timeout, LOGGER);
+        cmd.add("network_rules_vm_subnet");
+        cmd.add("--vmname", vmName);
+        cmd.add("--subnets", command.getSubnet());
+        cmd.add("--action=" + (command.isAdd() ? "-A" : "-D"));
+        final String result = cmd.execute();
+        return result == null;
     }
 
     public boolean configureNetworkRulesVMSecondaryIP(final Connect conn, final String vmName, final String vmMac, final String secIp, final String action) {

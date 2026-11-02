@@ -50,6 +50,8 @@ public class SecurityGroupRulesCmd extends Command {
     private List<IpPortAndProto> ingressRuleSet;
     private List<IpPortAndProto> egressRuleSet;
     private final List<String> secIps;
+    /** Subnets routed to the NIC, which the ipsets must hold next to its addresses. */
+    private List<String> routedSubnets;
     private VirtualMachineTO vmTO;
 
     public static class IpPortAndProto {
@@ -167,6 +169,22 @@ public class SecurityGroupRulesCmd extends Command {
         final String[] toks = cidr.split(CIDR_LENGTH_SEPARATOR);
         final long ipnum = NetUtils.ip2Long(toks[0]);
         return Long.toHexString(ipnum) + CIDR_LENGTH_SEPARATOR + toks[1];
+    }
+
+    public List<String> getRoutedSubnets() {
+        return routedSubnets;
+    }
+
+    public void setRoutedSubnets(final List<String> routedSubnets) {
+        this.routedSubnets = routedSubnets;
+    }
+
+    /** The routed subnets as the security group script takes them: comma separated, empty for none. */
+    public String getRoutedSubnetsString() {
+        if (routedSubnets == null || routedSubnets.isEmpty()) {
+            return "";
+        }
+        return String.join(",", routedSubnets);
     }
 
     public String getSecIpsString() {

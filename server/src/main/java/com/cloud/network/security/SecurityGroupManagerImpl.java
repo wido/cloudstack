@@ -55,6 +55,8 @@ import org.apache.cloudstack.managed.context.ManagedContextRunnable;
 import org.apache.cloudstack.utils.identity.ManagementServerNode;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnet;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 
 import com.cloud.agent.AgentManager;
 import com.cloud.agent.api.NetworkRulesSystemVmCommand;
@@ -172,6 +174,8 @@ public class SecurityGroupManagerImpl extends ManagerBase implements SecurityGro
     NicDao _nicDao;
     @Inject
     NicSecondaryIpDao _nicSecIpDao;
+    @Inject
+    RoutedSubnetService _routedSubnetService;
     @Inject
     MessageBus messageBus;
 
@@ -1067,6 +1071,7 @@ public class SecurityGroupManagerImpl extends ManagerBase implements SecurityGro
                             }
                             SecurityGroupRulesCmd cmd = generateRulesetCmd(vm.getInstanceName(), nic.getIPv4Address(), nic.getIPv6Address(), nic.getMacAddress(), vm.getId(),
                                     generateRulesetSignature(ingressRules, egressRules), seqnum, ingressRules, egressRules, nicSecIps);
+                            cmd.setRoutedSubnets(routedSubnetsOf(nic.getId()));
                             Commands cmds = new Commands(cmd);
                             try {
                                 _agentMgr.send(agentId, cmds, _answerListener);
@@ -1496,5 +1501,16 @@ public class SecurityGroupManagerImpl extends ManagerBase implements SecurityGro
         }
 
         return true;
+    }
+
+    /** The subnets routed to the NIC, which its ipsets must hold next to its addresses. */
+    protected List<String> routedSubnetsOf(long nicId) {
+        List<String> subnets = new ArrayList<>();
+        for (RoutedSubnet subnet : _routedSubnetService.listRoutedSubnetsForNic(nicId)) {
+            if ("Allocated".equals(subnet.getState())) {
+                subnets.add(subnet.getSubnet());
+            }
+        }
+        return subnets;
     }
 }

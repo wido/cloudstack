@@ -67,7 +67,8 @@ public final class LibvirtSecurityGroupRulesCommandWrapper extends CommandWrappe
         }
 
         final boolean result = libvirtComputingResource.addNetworkRules(command.getVmName(), Long.toString(command.getVmId()), command.getGuestIp(), command.getGuestIp6(), command.getSignature(),
-                Long.toString(command.getSeqNum()), command.getGuestMac(), command.stringifyRules(), vif, brname, command.getSecIpsString(), directRouted);
+                Long.toString(command.getSeqNum()), command.getGuestMac(), command.stringifyRules(), vif, brname, command.getSecIpsString(), directRouted,
+                command.getRoutedSubnetsString());
 
         if (!result) {
             logger.warn("Failed to program network rules for vm " + command.getVmName());

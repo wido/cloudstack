@@ -592,7 +592,8 @@ public class BridgeVifDriver extends VifDriverBase {
         intf.setLinkStateUp(nic.isEnabled());
 
         if (_macIpStaticEnabled || isDirectRoutedNic(nic)) {
-            executeMacIpScript(intf.getBrName(), nic.getMac(), nic.getIp(), nic.getIp6Address(), nic.getNicSecIps());
+            executeMacIpScript(intf.getBrName(), nic.getMac(), nic.getIp(), nic.getIp6Address(), nic.getNicSecIps(),
+                    isDirectRoutedNic(nic) ? nic.getRoutedSubnets() : null);
         }
 
         return intf;
@@ -893,7 +894,34 @@ public class BridgeVifDriver extends VifDriverBase {
         }
     }
 
+    /**
+     * One -r argument per subnet routed to the NIC: "subnet,nexthop,metric", the next hop being
+     * the NIC's address of the subnet's family and the metric derived from it, so that two
+     * Instances on this host sharing an anycast subnet keep separate routes.
+     */
+    public static List<String> routedSubnetArguments(List<String> routedSubnets, String ipv4, String ipv6) {
+        List<String> arguments = new ArrayList<>();
+        if (routedSubnets == null) {
+            return arguments;
+        }
+        for (String subnet : routedSubnets) {
+            if (subnet == null || subnet.isEmpty()) {
+                continue;
+            }
+            String nextHop = subnet.contains(":") ? ipv6 : ipv4;
+            if (nextHop == null || nextHop.isEmpty()) {
+                continue;
+            }
+            arguments.add(subnet + "," + nextHop + "," + NetUtils.routedSubnetMetric(nextHop));
+        }
+        return arguments;
+    }
+
     private void executeMacIpScript(String brName, String mac, String ipv4, String ipv6, List<String> secondaryIps) {
+        executeMacIpScript(brName, mac, ipv4, ipv6, secondaryIps, null);
+    }
+
+    private void executeMacIpScript(String brName, String mac, String ipv4, String ipv6, List<String> secondaryIps, List<String> routedSubnets) {
         if (_macIpScriptPath == null || mac == null || brName == null) {
             return;
         }
@@ -917,6 +945,9 @@ public class BridgeVifDriver extends VifDriverBase {
                         command.add("-4", secIp);
                     }
                 }
+            }
+            for (String route : routedSubnetArguments(routedSubnets, ipv4, ipv6)) {
+                command.add("-r", route);
             }
             final String result = command.execute();
             if (result != null) {

@@ -101,6 +101,14 @@ import com.cloud.vm.VMInstanceVO;
 import com.cloud.vm.VirtualMachine;
 import com.cloud.vm.dao.NicDao;
 import com.cloud.vm.dao.VMInstanceDao;
+import com.cloud.agent.AgentManager;
+import com.cloud.agent.api.Answer;
+import com.cloud.agent.api.ModifyRoutedSubnetCommand;
+import com.cloud.exception.AgentUnavailableException;
+import com.cloud.exception.OperationTimedoutException;
+import com.cloud.network.NetworkModel;
+import com.cloud.network.security.SecurityGroupManager;
+import com.cloud.utils.net.NetUtils;
 
 public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnetService {
 
@@ -136,6 +144,12 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
     private AccountManager accountManager;
     @Inject
     private ResourceLimitService resourceLimitService;
+    @Inject
+    private AgentManager agentManager;
+    @Inject
+    private NetworkModel networkModel;
+    @Inject
+    private SecurityGroupManager securityGroupManager;
 
     private List<RouteAnnouncer> routeAnnouncers = new ArrayList<>();
     private ScheduledExecutorService scheduler;
@@ -469,7 +483,9 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
             if (cmd.getOfferingId() != null) {
                 throw new InvalidParameterValueException("Give either offeringid or subnetid, not both");
             }
-            return Collections.singletonList(attachExistingSubnet(cmd.getSubnetId(), nic, vm, owner, zoneId));
+            RoutedSubnet attached = attachExistingSubnet(cmd.getSubnetId(), nic, vm, owner, zoneId);
+            applyOnHost(attached, nic, vm, network, true);
+            return Collections.singletonList(attached);
         }
         if (cmd.getOfferingId() == null) {
             throw new InvalidParameterValueException("One of offeringid and subnetid is required");
@@ -523,6 +539,7 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
         resourceLimitService.incrementResourceCount(owner.getId(), ResourceType.routed_subnet, (long) count);
         for (RoutedSubnet subnet : subnets) {
             logger.info("Routed {} to {} of {} with offering {}", subnet.getSubnet(), nic, vm, offering.getName());
+            applyOnHost(subnet, nic, vm, network, true);
             if (offering.getMode() == RoutedSubnetOffering.Mode.Static) {
                 announceSubnet(subnet, nic, zoneId);
             }
@@ -726,6 +743,13 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
      */
     protected void release(RoutedSubnetImpl subnet, boolean decrementCount) {
         NicVO nic = subnet.getNicId() == null ? null : nicDao.findByIdIncludingRemoved(subnet.getNicId());
+        if (nic != null && nic.getRemoved() == null) {
+            VMInstanceVO vm = vmInstanceDao.findById(nic.getInstanceId());
+            NetworkVO network = networkDao.findById(nic.getNetworkId());
+            if (vm != null && network != null) {
+                applyOnHost(subnet, nic, vm, network, false);
+            }
+        }
         boolean clean = withdrawSubnet(subnet, nic);
         List<RoutedSubnetImpl> siblings = rowsWithSubnet(subnet.getAddressFamily(), subnet.getSubnet());
         boolean last = siblings.size() <= 1;
@@ -811,6 +835,39 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
             }
         } catch (RuntimeException e) {
             logger.warn("Failed to release the routed subnets of account {}", accountId, e);
+        }
+    }
+
+    /**
+     * Installs or removes the subnet on the host of a running Instance: the kernel route on a
+     * Direct Routed host, and the security group ipset entry wherever rules apply to the
+     * Instance. A stopped Instance gets it at the next start through its NicTO. Best effort: a
+     * failure is logged, since the next start or rules refresh repairs it.
+     */
+    protected void applyOnHost(RoutedSubnet subnet, NicVO nic, VMInstanceVO vm, NetworkVO network, boolean add) {
+        if (vm.getState() != VirtualMachine.State.Running || vm.getHostId() == null) {
+            return;
+        }
+        boolean directRouted = Network.GuestType.L3.equals(network.getGuestType());
+        boolean applySecurityGroupRules = networkModel.isSecurityGroupSupportedInNetwork(network)
+                && CollectionUtils.isNotEmpty(securityGroupManager.getSecurityGroupsForVm(vm.getId()));
+        if (!directRouted && !applySecurityGroupRules) {
+            return;
+        }
+        String nextHop = nextHopOf(subnet, nic);
+        if (nextHop == null) {
+            return;
+        }
+        ModifyRoutedSubnetCommand command = new ModifyRoutedSubnetCommand(vm.getInstanceName(), nic.getMacAddress(), subnet.getSubnet(), nextHop,
+                NetUtils.routedSubnetMetric(nextHop), add, directRouted, applySecurityGroupRules);
+        try {
+            Answer answer = agentManager.send(vm.getHostId(), command);
+            if (answer == null || !answer.getResult()) {
+                logger.warn("Host {} could not {} routed subnet {} for {}: {}", vm.getHostId(), add ? "add" : "remove", subnet.getSubnet(), vm,
+                        answer == null ? "no answer" : answer.getDetails());
+            }
+        } catch (AgentUnavailableException | OperationTimedoutException e) {
+            logger.warn("Host {} unreachable while applying routed subnet {} for {}: {}", vm.getHostId(), subnet.getSubnet(), vm, e.getMessage());
         }
     }
 

@@ -88,7 +88,7 @@ def capture_framework(sg, fn, brname):
     return captured
 
 
-def capture_default_network_rules(sg, brname, direct_routed, vm_ip=VM_ARGS['vm_ip']):
+def capture_default_network_rules(sg, brname, direct_routed, vm_ip=VM_ARGS['vm_ip'], subnets=None):
     """ Run default_network_rules with all side effects stubbed, returning the commands the
     script would have executed. """
     captured = []
@@ -108,7 +108,7 @@ def capture_default_network_rules(sg, brname, direct_routed, vm_ip=VM_ARGS['vm_i
 
     ok = sg.default_network_rules(VM_ARGS['vm_name'], VM_ARGS['vm_id'], vm_ip, VM_ARGS['vm_ip6'],
                                   VM_ARGS['vm_mac'], VM_ARGS['vif'], brname, VM_ARGS['sec_ips'],
-                                  is_first_nic=True, direct_routed=direct_routed)
+                                  is_first_nic=True, direct_routed=direct_routed, subnets=subnets)
     return ok, captured
 
 
@@ -381,6 +381,40 @@ class TestClassicRulesUnchanged(unittest.TestCase):
                 self.assertNotIn('--physdev-is-bridged', cmd, cmd)
             if '--physdev-out' in cmd:
                 self.assertIn('--physdev-is-bridged', cmd, cmd)
+
+
+class TestRoutedSubnets(unittest.TestCase):
+    """ A subnet routed to the Instance joins its ipsets, both at start (--subnets) and on a
+    running Instance (network_rules_vm_subnet). Only ipset commands change: the anti-spoof and
+    dispatch rules match the sets, so they cover the subnet with no rule of their own. """
+
+    def setUp(self):
+        self.sg = load_script()
+
+    def test_default_rules_add_subnets_to_both_sets(self):
+        ok, captured = capture_default_network_rules(self.sg, "brdr-42", direct_routed=True, subnets="203.0.113.0/29,2001:db8:1::/64")
+        self.assertTrue(ok)
+        self.assertIn("ipset -A i-2-7-VM 203.0.113.0/29", captured)
+        self.assertIn("ipset -A i-2-7-VM-6 2001:db8:1::/64", captured)
+        ok, plain = capture_default_network_rules(self.sg, "brdr-42", direct_routed=True)
+        self.assertTrue(ok)
+        without_subnets = [c for c in captured if '203.0.113.0/29' not in c and '2001:db8:1::/64' not in c]
+        self.assertEqual(plain, without_subnets, "subnets must add ipset members and nothing else")
+
+    def test_classic_path_takes_subnets_too(self):
+        ok, captured = capture_default_network_rules(self.sg, "cloudbr0", direct_routed=False, subnets="203.0.113.0/29")
+        self.assertTrue(ok)
+        self.assertIn("ipset -A i-2-7-VM 203.0.113.0/29", captured)
+        self.assertFalse(any('ebtables' in c and '203.0.113.0/29' in c for c in captured), "no ARP rule for a routed subnet")
+
+    def test_hot_add_and_remove(self):
+        captured = []
+        self.sg.execute = lambda cmd: captured.append(cmd) or ''
+        self.assertTrue(self.sg.network_rules_vm_subnet("i-2-7-VM", "203.0.113.0/29,2001:db8:1::/64", "-A"))
+        self.assertEqual(["ipset -A i-2-7-VM 203.0.113.0/29", "ipset -A i-2-7-VM-6 2001:db8:1::/64"], captured)
+        captured.clear()
+        self.assertTrue(self.sg.network_rules_vm_subnet("i-2-7-VM", "203.0.113.0/29", "-D"))
+        self.assertEqual(["ipset -D i-2-7-VM 203.0.113.0/29"], captured)
 
 
 class TestIpsetType(unittest.TestCase):

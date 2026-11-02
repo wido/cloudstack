@@ -31,8 +31,13 @@
 # running Instance needs.
 
 usage() {
-    echo "Usage: $0 -o add    -b <bridge> -m <mac> [-4 <ipv4>] ... [-6 <ipv6>] ..."
-    echo "       $0 -o delete -b <bridge> -m <mac> [-4 <ipv4>] ... [-6 <ipv6>] ..."
+    echo "Usage: $0 -o add    -b <bridge> -m <mac> [-4 <ipv4>] ... [-6 <ipv6>] ... [-r <subnet>,<nexthop>,<metric>] ..."
+    echo "       $0 -o delete -b <bridge> -m <mac> [-4 <ipv4>] ... [-6 <ipv6>] ... [-r <subnet>,<nexthop>,<metric>] ..."
+    echo ""
+    echo "-r installs a route for a subnet routed to one of the Instance's addresses. The metric"
+    echo "keeps the routes of two Instances sharing a subnet (anycast) apart, so removing one"
+    echo "does not remove the other's. A delete without -4/-6/-r removes everything of the MAC,"
+    echo "routed subnets included."
 }
 
 OP=
@@ -40,14 +45,16 @@ BRIDGE=
 MAC=
 IPV4_LIST=()
 IPV6_LIST=()
+ROUTE_LIST=()
 
-while getopts 'o:b:m:4:6:' OPTION; do
+while getopts 'o:b:m:4:6:r:' OPTION; do
     case $OPTION in
     o) OP="$OPTARG" ;;
     b) BRIDGE="$OPTARG" ;;
     m) MAC="$OPTARG" ;;
     4) IPV4_LIST+=("$OPTARG") ;;
     6) IPV6_LIST+=("$OPTARG") ;;
+    r) ROUTE_LIST+=("$OPTARG") ;;
     ?) usage; exit 2 ;;
     esac
 done
@@ -56,6 +63,38 @@ if [[ -z "$OP" || -z "$BRIDGE" || -z "$MAC" ]]; then
     usage
     exit 2
 fi
+
+# ip_family <subnet|address> prints the ip(8) family flag for it
+ip_family() {
+    case "$1" in
+        *:*) echo "-6" ;;
+        *)   echo "-4" ;;
+    esac
+}
+
+# add_routes installs "subnet via nexthop" for every -r entry. The next hop is one of the
+# Instance's own addresses, which add_entries has just given a route and neighbour entry on the
+# bridge, so the kernel resolves it there.
+add_routes() {
+    local entry subnet nexthop metric
+    for entry in "${ROUTE_LIST[@]}"; do
+        IFS=',' read -r subnet nexthop metric <<< "${entry}"
+        if [[ -z "$subnet" || -z "$nexthop" || -z "$metric" ]]; then
+            echo "invalid -r entry: ${entry}" >&2
+            continue
+        fi
+        ip "$(ip_family "${subnet}")" route replace "${subnet}" via "${nexthop}" dev "${BRIDGE}" metric "${metric}"
+    done
+}
+
+delete_routes() {
+    local entry subnet nexthop metric
+    for entry in "${ROUTE_LIST[@]}"; do
+        IFS=',' read -r subnet nexthop metric <<< "${entry}"
+        [[ -z "$subnet" || -z "$nexthop" || -z "$metric" ]] && continue
+        ip "$(ip_family "${subnet}")" route del "${subnet}" via "${nexthop}" dev "${BRIDGE}" metric "${metric}" 2>/dev/null || true
+    done
+}
 
 add_entries() {
     for addr in "${IPV4_LIST[@]}"; do
@@ -71,9 +110,11 @@ add_entries() {
             ip -6 route replace "${addr}/128" dev "${BRIDGE}"
         done
     fi
+    add_routes
 }
 
 delete_listed_entries() {
+    delete_routes
     for addr in "${IPV4_LIST[@]}"; do
         ip neigh del "${addr}" dev "${BRIDGE}" 2>/dev/null || true
         ip route del "${addr}/32" dev "${BRIDGE}" 2>/dev/null || true
@@ -86,19 +127,21 @@ delete_listed_entries() {
 }
 
 delete_entries() {
-    if [[ "${#IPV4_LIST[@]}" -gt 0 || "${#IPV6_LIST[@]}" -gt 0 ]]; then
+    if [[ "${#IPV4_LIST[@]}" -gt 0 || "${#IPV6_LIST[@]}" -gt 0 || "${#ROUTE_LIST[@]}" -gt 0 ]]; then
         delete_listed_entries
         return 0
     fi
 
     # Find all IPv4 neighbour entries on the bridge matching this MAC and remove them
     while read -r addr; do
+        ip route flush via "${addr}" dev "${BRIDGE}" 2>/dev/null || true
         ip neigh del "${addr}" dev "${BRIDGE}" 2>/dev/null || true
         ip route del "${addr}/32" dev "${BRIDGE}" 2>/dev/null || true
     done < <(ip neigh show dev "${BRIDGE}" | awk -v mac="${MAC}" 'tolower($3) == tolower(mac) {print $1}')
 
     # Find all IPv6 neighbour entries on the bridge matching this MAC and remove them
     while read -r addr; do
+        ip -6 route flush via "${addr}" dev "${BRIDGE}" 2>/dev/null || true
         ip -6 neigh del "${addr}" dev "${BRIDGE}" 2>/dev/null || true
         ip -6 route del "${addr}/128" dev "${BRIDGE}" 2>/dev/null || true
     done < <(ip -6 neigh show dev "${BRIDGE}" | awk -v mac="${MAC}" 'tolower($3) == tolower(mac) {print $1}')

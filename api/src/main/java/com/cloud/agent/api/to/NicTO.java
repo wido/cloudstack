@@ -29,6 +29,8 @@ public class NicTO extends NetworkTO {
     boolean pxeDisable;
     String nicUuid;
     List<String> nicSecIps;
+    /** Subnets routed to this NIC's addresses, in CIDR notation, both families. */
+    List<String> routedSubnets;
     Map<NetworkOffering.Detail, String> details;
     boolean dpdkEnabled;
     Integer mtu;
@@ -182,5 +184,13 @@ public class NicTO extends NetworkTO {
 
     public void setAssociatedNetworks(List<NetworkTO> associatedNetworks) {
         this.associatedNetworks = associatedNetworks;
+    }
+
+    public List<String> getRoutedSubnets() {
+        return routedSubnets;
+    }
+
+    public void setRoutedSubnets(List<String> routedSubnets) {
+        this.routedSubnets = routedSubnets;
     }
 }

@@ -1936,4 +1936,19 @@ public class NetUtils {
         String netmask = network.getNetmask().toString();
         return netrisV6Gateway.toString() + "/" + netmask;
     }
+
+    /**
+     * The metric for a host route "subnet via address": the IPv4 address as an unsigned integer,
+     * or the low 32 bits of an IPv6 address. Two Instances on one host sharing an anycast subnet
+     * then install distinct routes, and removing one leaves the other's in place.
+     */
+    public static long routedSubnetMetric(final String nextHop) {
+        if (nextHop == null) {
+            return 0;
+        }
+        if (nextHop.contains(":")) {
+            return IPv6Address.fromString(nextHop).toBigInteger().and(java.math.BigInteger.valueOf(0xFFFFFFFFL)).longValue();
+        }
+        return ip2Long(nextHop);
+    }
 }

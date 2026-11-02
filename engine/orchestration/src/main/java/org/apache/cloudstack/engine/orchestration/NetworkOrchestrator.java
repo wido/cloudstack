@@ -182,6 +182,7 @@ import org.apache.cloudstack.extension.Extension;
 import org.apache.cloudstack.extension.ExtensionHelper;
 import org.apache.cloudstack.framework.extensions.network.NetworkExtensionElement;
 import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnet;
 
 import com.cloud.network.element.AggregatedCommandExecutor;
 import com.cloud.network.element.ConfigDriveNetworkElement;
@@ -1541,6 +1542,15 @@ public class NetworkOrchestrator extends ManagerBase implements NetworkOrchestra
 
         final Integer networkRate = _networkModel.getNetworkRate(config.getId(), null);
         to.setNetworkRateMbps(networkRate);
+        List<String> routedSubnets = new ArrayList<>();
+        for (RoutedSubnet subnet : routedSubnetService.listRoutedSubnetsForNic(nic.getId())) {
+            if ("Allocated".equals(subnet.getState())) {
+                routedSubnets.add(subnet.getSubnet());
+            }
+        }
+        if (!routedSubnets.isEmpty()) {
+            to.setRoutedSubnets(routedSubnets);
+        }
 
         to.setUuid(config.getUuid());
 

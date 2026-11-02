@@ -477,6 +477,38 @@ def add_to_ipset(ipsetname, ips, action):
     return result
 
 
+def split_subnets_by_family(subnets):
+    """ Splits a comma separated list of subnets (CIDRs) into IPv4 and IPv6 lists. """
+    ip4s = []
+    ip6s = []
+    for subnet in [_s.strip() for _s in (subnets or '').split(',') if _s and _s.strip()]:
+        if ':' in subnet:
+            ip6s.append(subnet)
+        else:
+            ip4s.append(subnet)
+    return ip4s, ip6s
+
+
+def add_subnets_to_ipsets(vm_name, subnets, action):
+    """ A subnet routed to an Instance's address joins the Instance's ipsets, so traffic from and
+    to the subnet passes the same anti-spoof and dispatch rules as the address itself. Both sets
+    are hash:net, so a CIDR is an ordinary member. Nothing else changes: ARP is never seen for a
+    routed subnet, and the rules are per Instance, not per address. """
+    vmipsetName = ipset_chain_name(vm_name)
+    ip4s, ip6s = split_subnets_by_family(subnets)
+    add_to_ipset(vmipsetName, ip4s, action)
+    add_to_ipset(vmipsetName + '-6', ip6s, action)
+    return True
+
+
+def network_rules_vm_subnet(vm_name, subnets, action):
+    """ Hot add or remove of routed subnets on a running Instance. """
+    logging.debug("vmName = " + vm_name)
+    logging.debug("subnets = " + str(subnets))
+    logging.debug("action = " + str(action))
+    return add_subnets_to_ipsets(vm_name, subnets, action)
+
+
 def network_rules_vmSecondaryIp(vm_name, vm_mac, ip_secondary, action):
     logging.debug("vmName = "+ vm_name)
     logging.debug("vmMac = " + vm_mac)
@@ -516,7 +548,7 @@ def ebtables_rules_vmip (vmname, vmmac, ips, action):
         except:
             logging.debug("Failed to program ebtables rules for secondary ip %s for vm %s with action %s" % (ip, vmname, action))
 
-def check_default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, sec_ips, is_first_nic=False, direct_routed=False):
+def check_default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, sec_ips, is_first_nic=False, direct_routed=False, subnets=None):
     brfw = get_br_fw(brname)
     vmchain_default = '-'.join(vm_name.split('-')[:-1]) + "-def"
     try:
@@ -525,7 +557,7 @@ def check_default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brna
         rules = None
     if not rules:
         logging.debug("iptables rules do not exist, programming default rules for %s %s" % (vm_name,vif))
-        default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, sec_ips, is_first_nic, direct_routed)
+        default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, sec_ips, is_first_nic, direct_routed, subnets)
     else:
         vmchain_in = vm_name + "-in"
         try:
@@ -622,9 +654,10 @@ def add_l3_fw_framework(brname):
     return True
 
 
-def default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, sec_ips, is_first_nic=False, direct_routed=False):
+def default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, sec_ips, is_first_nic=False, direct_routed=False, subnets=None):
     """ direct_routed marks an Instance on a Direct Routed (L3) network; the Agent decides that
-    and passes --directrouted. vm_ip may be empty on an IPv6-only network. """
+    and passes --directrouted. vm_ip may be empty on an IPv6-only network. subnets are the
+    subnets routed to the Instance (--subnets), added to its ipsets next to its addresses. """
     vm_ip = vm_ip or ''
     l3 = direct_routed
 
@@ -712,6 +745,9 @@ def default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, se
 
         if not write_secip_log_for_vm(vm_name, sec_ips, vm_id):
             logging.debug("Failed to log default network rules, ignoring")
+
+    if subnets:
+        add_subnets_to_ipsets(vm_name, subnets, action)
 
     try:
         execute("iptables -A " + brfw + "-OUT " + to_vm4 + " -j " + vmchain_default)
@@ -1241,7 +1277,7 @@ def parse_network_rules(rules):
     return ret
 
 
-def add_network_rules(vm_name, vm_id, vm_ip, vm_ip6, signature, seqno, vmMac, rules, vif, brname, sec_ips, direct_routed=False):
+def add_network_rules(vm_name, vm_id, vm_ip, vm_ip6, signature, seqno, vmMac, rules, vif, brname, sec_ips, direct_routed=False, subnets=None):
     vm_ip = vm_ip or ''
     try:
         vmName = vm_name
@@ -1270,7 +1306,7 @@ def add_network_rules(vm_name, vm_id, vm_ip, vm_ip6, signature, seqno, vmMac, ru
                 execute('ip6tables -F ' + chain)
         except:
             logging.debug("Error flushing iptables rules for " + vm_name + ". Presuming firewall rules deleted, re-initializing." )
-            default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vmMac, vif, brname, sec_ips, True, direct_routed)
+            default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vmMac, vif, brname, sec_ips, True, direct_routed, subnets)
             if direct_routed:
                 # default_network_rules leaves a DROP in the egress chain; the rules below
                 # bring their own tail
@@ -1750,6 +1786,7 @@ if __name__ == '__main__':
     parser.add_argument("--isFirstNic", action="store_true", dest="isFirstNic")
     parser.add_argument("--check", action="store_true", dest="check")
     parser.add_argument("--directrouted", action="store_true", dest="directRouted")
+    parser.add_argument("--subnets", dest="subnets")
     args = parser.parse_args()
     cmd = args.command
     logging.debug("Executing command: %s", cmd)
@@ -1764,9 +1801,9 @@ if __name__ == '__main__':
     if cmd == "can_bridge_firewall":
         can_bridge_firewall(args.privnic)
     elif cmd == "default_network_rules" and args.check:
-        check_default_network_rules(args.vmName, args.vmID, args.vmIP, args.vmIP6, args.vmMAC, args.vif, args.brname, args.nicSecIps, args.isFirstNic, args.directRouted)
+        check_default_network_rules(args.vmName, args.vmID, args.vmIP, args.vmIP6, args.vmMAC, args.vif, args.brname, args.nicSecIps, args.isFirstNic, args.directRouted, args.subnets)
     elif cmd == "default_network_rules" and not args.check:
-        default_network_rules(args.vmName, args.vmID, args.vmIP, args.vmIP6, args.vmMAC, args.vif, args.brname, args.nicSecIps, args.isFirstNic, args.directRouted)
+        default_network_rules(args.vmName, args.vmID, args.vmIP, args.vmIP6, args.vmMAC, args.vif, args.brname, args.nicSecIps, args.isFirstNic, args.directRouted, args.subnets)
     elif cmd == "destroy_network_rules_for_vm":
         if args.vmIP is None:
             destroy_network_rules_for_vm(args.vmName, args.vif)
@@ -1777,9 +1814,11 @@ if __name__ == '__main__':
     elif cmd == "get_rule_logs_for_vms":
         get_rule_logs_for_vms()
     elif cmd == "add_network_rules":
-        add_network_rules(args.vmName, args.vmID, args.vmIP, args.vmIP6, args.sig, args.seq, args.vmMAC, args.rules, args.vif, args.brname, args.nicSecIps, args.directRouted)
+        add_network_rules(args.vmName, args.vmID, args.vmIP, args.vmIP6, args.sig, args.seq, args.vmMAC, args.rules, args.vif, args.brname, args.nicSecIps, args.directRouted, args.subnets)
     elif cmd == "network_rules_vmSecondaryIp":
         network_rules_vmSecondaryIp(args.vmName, args.vmMAC, args.nicSecIps, args.action)
+    elif cmd == "network_rules_vm_subnet":
+        network_rules_vm_subnet(args.vmName, args.subnets, args.action)
     elif cmd == "cleanup_rules":
         cleanup_rules()
     elif cmd == "post_default_network_rules":

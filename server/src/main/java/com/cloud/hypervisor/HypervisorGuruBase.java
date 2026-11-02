@@ -63,6 +63,8 @@ import org.apache.cloudstack.vm.UnmanagedInstanceTO;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnet;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 
 import com.cloud.agent.api.Command;
 import com.cloud.agent.api.to.DataStoreTO;
@@ -131,6 +133,8 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
     private NicSecondaryIpDao _nicSecIpDao;
     @Inject
     private NicNetworkMapDao nicNetworkMapDao;
+    @Inject
+    private RoutedSubnetService routedSubnetService;
     @Inject
     private ResourceManager _resourceMgr;
     @Inject
@@ -247,6 +251,7 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
             }
             to.setNicSecIps(secIps);
             setTrunkAssociationsOnNicTO(to, nicVO);
+            to.setRoutedSubnets(routedSubnetsOf(nicVO.getId()));
         } else {
             logger.warn("Unable to load NicVO for NicProfile {}", profile);
             //Workaround for dynamically created nics
@@ -672,5 +677,16 @@ public abstract class HypervisorGuruBase extends AdapterBase implements Hypervis
                 clusterUuid,
                 resourceTags
         );
+    }
+
+    /** The subnets routed to the NIC, for the host to install next to its addresses. */
+    protected List<String> routedSubnetsOf(long nicId) {
+        List<String> subnets = new ArrayList<>();
+        for (RoutedSubnet subnet : routedSubnetService.listRoutedSubnetsForNic(nicId)) {
+            if ("Allocated".equals(subnet.getState())) {
+                subnets.add(subnet.getSubnet());
+            }
+        }
+        return subnets.isEmpty() ? null : subnets;
     }
 }

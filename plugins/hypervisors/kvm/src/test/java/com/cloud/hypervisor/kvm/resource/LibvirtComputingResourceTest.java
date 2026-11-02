@@ -3509,7 +3509,8 @@ public class LibvirtComputingResourceTest {
 
         when(libvirtComputingResourceMock.applyDefaultNetworkRules(conn, vm, true)).thenReturn(true);
         when(libvirtComputingResourceMock.addNetworkRules(command.getVmName(), Long.toString(command.getVmId()), command.getGuestIp(), command.getGuestIp6(), command.getSignature(),
-                Long.toString(command.getSeqNum()), command.getGuestMac(), command.stringifyRules(), vif, brname, command.getSecIpsString(), false)).thenReturn(true);
+                Long.toString(command.getSeqNum()), command.getGuestMac(), command.stringifyRules(), vif, brname, command.getSecIpsString(), false,
+                command.getRoutedSubnetsString())).thenReturn(true);
 
         final LibvirtRequestWrapper wrapper = LibvirtRequestWrapper.getInstance();
         assertNotNull(wrapper);
