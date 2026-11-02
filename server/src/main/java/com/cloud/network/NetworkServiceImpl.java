@@ -93,6 +93,7 @@ import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.cloudstack.network.routedsubnet.RoutedSubnetService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
@@ -465,6 +466,8 @@ public class NetworkServiceImpl extends ManagerBase implements NetworkService, C
     private VirtualRouterProviderDao virtualRouterProviderDao;
     @Inject
     RoutedIpv4Manager routedIpv4Manager;
+    @Inject
+    RoutedSubnetService routedSubnetService;
     @Inject
     private BGPService bgpService;
     @Inject
@@ -4028,6 +4031,10 @@ public class NetworkServiceImpl extends ManagerBase implements NetworkService, C
         boolean success = _networkMgr.restartNetwork(id, callerAccount, user, cleanup, livePatch);
         if (success) {
             logger.debug("Network {} is restarted successfully.", network);
+            if (Network.GuestType.L3.equals(network.getGuestType()) || Network.GuestType.Shared.equals(network.getGuestType())) {
+                // Restarting the network is the operator's "push the routes again"
+                routedSubnetService.reannounceRoutedSubnetsForNetwork(id);
+            }
         } else {
             logger.warn("Network {} failed to restart.", network);
         }

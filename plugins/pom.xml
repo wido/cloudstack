@@ -61,6 +61,7 @@
         <module>api/solidfire-intg-test</module>
 
         <module>backup/dummy</module>
+        <module>routing/http-announcer</module>
         <module>backup/networker</module>
         <module>backup/nas</module>
         <module>backup/kboss</module>
