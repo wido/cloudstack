@@ -8030,6 +8030,133 @@ class RoutingFirewallRule:
         apiclient.updateRoutingFirewallRule(cmd)
 
 
+class GuestNetworkIpv6Prefix:
+    """Manage guest network IPv6 prefixes of a zone"""
+
+    def __init__(self, items):
+        self.__dict__.update(items)
+
+    @classmethod
+    def create(cls, apiclient, zoneid, prefix, **kwargs):
+        cmd = createGuestNetworkIpv6Prefix.createGuestNetworkIpv6PrefixCmd()
+        cmd.zoneid = zoneid
+        cmd.prefix = prefix
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        return GuestNetworkIpv6Prefix(apiclient.createGuestNetworkIpv6Prefix(cmd).__dict__)
+
+    @classmethod
+    def list(cls, apiclient, **kwargs):
+        cmd = listGuestNetworkIpv6Prefixes.listGuestNetworkIpv6PrefixesCmd()
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        return apiclient.listGuestNetworkIpv6Prefixes(cmd)
+
+    def delete(self, apiclient):
+        cmd = deleteGuestNetworkIpv6Prefix.deleteGuestNetworkIpv6PrefixCmd()
+        cmd.id = self.id
+        apiclient.deleteGuestNetworkIpv6Prefix(cmd)
+
+    def dedicate(self, apiclient, **kwargs):
+        cmd = dedicateGuestNetworkIpv6Prefix.dedicateGuestNetworkIpv6PrefixCmd()
+        cmd.id = self.id
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        return GuestNetworkIpv6Prefix(apiclient.dedicateGuestNetworkIpv6Prefix(cmd).__dict__)
+
+    def release(self, apiclient):
+        cmd = releaseDedicatedGuestNetworkIpv6Prefix.releaseDedicatedGuestNetworkIpv6PrefixCmd()
+        cmd.id = self.id
+        return GuestNetworkIpv6Prefix(apiclient.releaseDedicatedGuestNetworkIpv6Prefix(cmd).__dict__)
+
+
+class RoutedSubnetOffering:
+    """Manage Routed Subnet Offerings: the sizes of the subnet(s) routed to an Instance and who announces them"""
+
+    def __init__(self, items):
+        self.__dict__.update(items)
+
+    @classmethod
+    def create(cls, apiclient, services, **kwargs):
+        cmd = createRoutedSubnetOffering.createRoutedSubnetOfferingCmd()
+        cmd.name = services["name"]
+        cmd.displaytext = services.get("displaytext", services["name"])
+        cmd.mode = services["mode"]
+        if "ip4prefixlength" in services:
+            cmd.ip4prefixlength = services["ip4prefixlength"]
+        if "ip6prefixlength" in services:
+            cmd.ip6prefixlength = services["ip6prefixlength"]
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        return RoutedSubnetOffering(apiclient.createRoutedSubnetOffering(cmd).__dict__)
+
+    @classmethod
+    def list(cls, apiclient, **kwargs):
+        cmd = listRoutedSubnetOfferings.listRoutedSubnetOfferingsCmd()
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        return apiclient.listRoutedSubnetOfferings(cmd)
+
+    def update(self, apiclient, **kwargs):
+        cmd = updateRoutedSubnetOffering.updateRoutedSubnetOfferingCmd()
+        cmd.id = self.id
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        return apiclient.updateRoutedSubnetOffering(cmd)
+
+    def delete(self, apiclient):
+        cmd = deleteRoutedSubnetOffering.deleteRoutedSubnetOfferingCmd()
+        cmd.id = self.id
+        apiclient.deleteRoutedSubnetOffering(cmd)
+
+
+class RoutedSubnet:
+    """A subnet routed to the unicast address of an Instance's NIC"""
+
+    def __init__(self, items):
+        self.__dict__.update(items)
+
+    @classmethod
+    def assign(cls, apiclient, nicid, offeringid=None, subnetid=None, **kwargs):
+        """Routes the offering's subnet(s) to the NIC, or an existing BGP-mode subnet (anycast).
+        Returns the list of subnets the call produced."""
+        cmd = assignRoutedSubnet.assignRoutedSubnetCmd()
+        cmd.nicid = nicid
+        if offeringid:
+            cmd.offeringid = offeringid
+        if subnetid:
+            cmd.subnetid = subnetid
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        result = apiclient.assignRoutedSubnet(cmd)
+        if result is None:
+            return []
+        if not isinstance(result, list):
+            result = [result]
+        return [RoutedSubnet(item.__dict__) for item in result]
+
+    @classmethod
+    def list(cls, apiclient, **kwargs):
+        cmd = listRoutedSubnets.listRoutedSubnetsCmd()
+        [setattr(cmd, k, v) for k, v in list(kwargs.items())]
+        return apiclient.listRoutedSubnets(cmd)
+
+    def release(self, apiclient, nicid=None):
+        cmd = releaseRoutedSubnet.releaseRoutedSubnetCmd()
+        cmd.id = self.id
+        if nicid:
+            cmd.nicid = nicid
+        return apiclient.releaseRoutedSubnet(cmd)
+
+    def delete(self, apiclient):
+        """cleanup_resources calls delete; a routed subnet is released"""
+        self.release(apiclient, getattr(self, "nicid", None))
+
+    def update(self, apiclient, offeringid):
+        cmd = updateRoutedSubnet.updateRoutedSubnetCmd()
+        cmd.id = self.id
+        cmd.offeringid = offeringid
+        return RoutedSubnet(apiclient.updateRoutedSubnet(cmd).__dict__)
+
+    def reannounce(self, apiclient):
+        cmd = reannounceRoutedSubnet.reannounceRoutedSubnetCmd()
+        cmd.id = self.id
+        return RoutedSubnet(apiclient.reannounceRoutedSubnet(cmd).__dict__)
+
+
 class ASNRange:
     """Manage ASN range for Guest Network"""
 

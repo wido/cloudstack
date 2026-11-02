@@ -258,6 +258,19 @@ test_data = {
         "startip": "203.0.113.10",
         "endip": "203.0.113.50"
     },
+    "routed_subnet_offering_bgp": {
+        "name": "Test Routed Subnet - BGP /29 and /64",
+        "displaytext": "Test Routed Subnet - BGP /29 and /64",
+        "mode": "BGP",
+        "ip4prefixlength": 29,
+        "ip6prefixlength": 64
+    },
+    "routed_subnet_offering_static": {
+        "name": "Test Routed Subnet - Static /30",
+        "displaytext": "Test Routed Subnet - Static /30",
+        "mode": "Static",
+        "ip4prefixlength": 30
+    },
     "l2-network_offering": {
         "name": "Test L2 - Network offering",
         "displaytext": "Test L2 - Network offering",
