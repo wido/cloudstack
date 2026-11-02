@@ -58,6 +58,10 @@ import org.apache.cloudstack.network.routedsubnet.dao.RoutedSubnetOfferingDao;
 import org.apache.cloudstack.network.routedsubnet.dao.RoutedSubnetOfferingDetailsDao;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.cloudstack.network.BgpPeerVO;
+import org.apache.cloudstack.network.dao.BgpPeerDao;
+import org.apache.cloudstack.network.RoutedIpv4Manager;
+import org.apache.cloudstack.api.command.user.routedsubnet.UpdateRoutedSubnetCmd;
 
 import com.cloud.configuration.Resource.ResourceType;
 import com.cloud.dc.DataCenter;
@@ -109,6 +113,8 @@ import com.cloud.exception.OperationTimedoutException;
 import com.cloud.network.NetworkModel;
 import com.cloud.network.security.SecurityGroupManager;
 import com.cloud.utils.net.NetUtils;
+import com.cloud.dc.ASNumberVO;
+import com.cloud.dc.dao.ASNumberDao;
 
 public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnetService {
 
@@ -150,6 +156,12 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
     private NetworkModel networkModel;
     @Inject
     private SecurityGroupManager securityGroupManager;
+    @Inject
+    private ASNumberDao asNumberDao;
+    @Inject
+    private BgpPeerDao bgpPeerDao;
+    @Inject
+    private RoutedIpv4Manager routedIpv4Manager;
 
     private List<RouteAnnouncer> routeAnnouncers = new ArrayList<>();
     private ScheduledExecutorService scheduler;
@@ -193,6 +205,7 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
         cmdList.add(ReleaseRoutedSubnetCmd.class);
         cmdList.add(ListRoutedSubnetsCmd.class);
         cmdList.add(ReannounceRoutedSubnetCmd.class);
+        cmdList.add(UpdateRoutedSubnetCmd.class);
         return cmdList;
     }
 
@@ -483,6 +496,7 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
             if (cmd.getOfferingId() != null) {
                 throw new InvalidParameterValueException("Give either offeringid or subnetid, not both");
             }
+            ensureAsNumber(vm, owner, zoneId);
             RoutedSubnet attached = attachExistingSubnet(cmd.getSubnetId(), nic, vm, owner, zoneId);
             applyOnHost(attached, nic, vm, network, true);
             return Collections.singletonList(attached);
@@ -522,6 +536,9 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
 
         int count = (offering.getIp4PrefixLength() != null ? 1 : 0) + (offering.getIp6PrefixLength() != null ? 1 : 0);
         resourceLimitService.checkResourceLimit(owner, ResourceType.routed_subnet, count);
+        if (offering.getMode() == RoutedSubnetOffering.Mode.BGP) {
+            ensureAsNumber(vm, owner, zoneId);
+        }
 
         List<RoutedSubnet> subnets = Transaction.execute(new TransactionCallback<List<RoutedSubnet>>() {
             @Override
@@ -761,7 +778,204 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
         if (decrementCount && last && subnet.getAccountId() > 0) {
             resourceLimitService.decrementResourceCount(subnet.getAccountId(), ResourceType.routed_subnet, 1L);
         }
+        if (nic != null) {
+            releaseAsNumberIfUnused(nic.getInstanceId(), zoneOf(subnet, nic));
+        }
         logger.info("Released {} from NIC {}{}", subnet.getSubnet(), subnet.getNicId(), clean ? "" : " (withdraw pending on an announcer endpoint)");
+    }
+
+    // ---------------------------------------------------------------- BGP mode
+
+    /**
+     * Every Instance announcing routed subnets speaks with its own AS number, taken from the
+     * zone's AS number ranges when its first BGP-mode subnet is assigned.
+     */
+    protected ASNumberVO ensureAsNumber(VMInstanceVO vm, Account owner, long zoneId) {
+        ASNumberVO existing = asNumberDao.findByZoneAndVmId(zoneId, vm.getId());
+        if (existing != null) {
+            return existing;
+        }
+        ASNumberVO free = asNumberDao.findOneByAllocationStateAndZone(zoneId, false);
+        if (free == null) {
+            throw new InvalidParameterValueException("No free AS number in the zone's AS number ranges; a BGP-mode subnet needs one per Instance");
+        }
+        free.setAllocated(true);
+        free.setAllocatedTime(new Date());
+        free.setVmId(vm.getId());
+        free.setAccountId(owner.getId());
+        free.setDomainId(owner.getDomainId());
+        asNumberDao.update(free.getId(), free);
+        logger.info("Allocated AS number {} to {}", free.getAsNumber(), vm);
+        return free;
+    }
+
+    protected void releaseAsNumberIfUnused(long vmId, Long zoneId) {
+        if (zoneId == null) {
+            return;
+        }
+        ASNumberVO asn = asNumberDao.findByZoneAndVmId(zoneId, vmId);
+        if (asn == null) {
+            return;
+        }
+        for (NicVO nic : nicDao.listByVmId(vmId)) {
+            for (RoutedSubnet subnet : listRoutedSubnetsForNic(nic.getId())) {
+                if ("Allocated".equals(subnet.getState()) && isBgp(subnet)) {
+                    return;
+                }
+            }
+        }
+        asn.setAllocated(false);
+        asn.setAllocatedTime(null);
+        asn.setVmId(null);
+        asn.setAccountId(null);
+        asn.setDomainId(null);
+        asNumberDao.update(asn.getId(), asn);
+        logger.info("Released AS number {} of Instance {}", asn.getAsNumber(), vmId);
+    }
+
+    protected boolean isBgp(RoutedSubnet subnet) {
+        if (subnet.getOfferingId() == null) {
+            return false;
+        }
+        RoutedSubnetOfferingVO offering = offeringDao.findById(subnet.getOfferingId());
+        return offering != null && offering.getMode() == RoutedSubnetOffering.Mode.BGP;
+    }
+
+    @Override
+    public String getRoutedSubnetsBgpMetadata(long vmId) {
+        VMInstanceVO vm = vmInstanceDao.findById(vmId);
+        if (vm == null) {
+            return "";
+        }
+        Set<Long> restrictedPeerIds = new HashSet<>();
+        boolean restricted = false;
+        boolean bgp = false;
+        Long zoneId = null;
+        for (NicVO nic : nicDao.listByVmId(vmId)) {
+            for (RoutedSubnet subnet : listRoutedSubnetsForNic(nic.getId())) {
+                if (!"Allocated".equals(subnet.getState()) || !isBgp(subnet)) {
+                    continue;
+                }
+                bgp = true;
+                zoneId = zoneOf(subnet, nic);
+                RoutedSubnetOfferingDetailsVO peersDetail = offeringDetailsDao.findDetail(subnet.getOfferingId(), RoutedSubnetOffering.DETAIL_BGP_PEERS);
+                String detail = peersDetail == null ? null : peersDetail.getValue();
+                if (StringUtils.isNotBlank(detail)) {
+                    restricted = true;
+                    for (String id : detail.split(",")) {
+                        BgpPeerVO peer = bgpPeerDao.findByUuid(id.trim());
+                        if (peer == null && StringUtils.isNumeric(id.trim())) {
+                            peer = bgpPeerDao.findById(Long.parseLong(id.trim()));
+                        }
+                        if (peer != null) {
+                            restrictedPeerIds.add(peer.getId());
+                        }
+                    }
+                }
+            }
+        }
+        if (!bgp || zoneId == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        ASNumberVO asn = asNumberDao.findByZoneAndVmId(zoneId, vmId);
+        if (asn != null) {
+            sb.append("local_asn=").append(asn.getAsNumber()).append('\n');
+        }
+        Account owner = accountDao.findByIdIncludingRemoved(vm.getAccountId());
+        List<Long> peerIds = owner == null ? new ArrayList<>() : routedIpv4Manager.getBgpPeerIdsForAccount(owner, zoneId);
+        for (Long peerId : peerIds) {
+            if (restricted && !restrictedPeerIds.contains(peerId)) {
+                continue;
+            }
+            BgpPeerVO peer = bgpPeerDao.findById(peerId);
+            if (peer == null) {
+                continue;
+            }
+            for (String address : new String[] {peer.getIp4Address(), peer.getIp6Address()}) {
+                if (StringUtils.isBlank(address)) {
+                    continue;
+                }
+                sb.append("peer=").append(address).append(' ').append(peer.getAsNumber());
+                if (StringUtils.isNotBlank(peer.getPassword())) {
+                    sb.append(' ').append(peer.getPassword());
+                }
+                sb.append('\n');
+            }
+        }
+        return sb.toString();
+    }
+
+    @Override
+    @ActionEvent(eventType = EventTypes.EVENT_ROUTED_SUBNET_UPDATE, eventDescription = "changing the offering of a routed subnet", async = true)
+    public RoutedSubnet updateRoutedSubnet(UpdateRoutedSubnetCmd cmd) {
+        Account caller = CallContext.current().getCallingAccount();
+        RoutedSubnetImpl subnet = findByUuid(cmd.getId());
+        if (subnet == null || subnet.getOfferingId() == null) {
+            throw new InvalidParameterValueException("Unable to find routed subnet with id " + cmd.getId());
+        }
+        accountManager.checkAccess(caller, AccessType.OperateEntry, true, subnet);
+        RoutedSubnetOfferingVO current = offeringDao.findById(subnet.getOfferingId());
+        RoutedSubnetOfferingVO target = offeringDao.findById(cmd.getOfferingId());
+        if (target == null || target.getState() != RoutedSubnetOffering.State.Active) {
+            throw new InvalidParameterValueException("Unable to find an active Routed Subnet Offering with id " + cmd.getOfferingId());
+        }
+        if (current != null && current.getId() == target.getId()) {
+            return subnet;
+        }
+        Integer targetLength = subnet.getAddressFamily() == 4 ? target.getIp4PrefixLength() : target.getIp6PrefixLength();
+        if (targetLength == null || targetLength != SubnetCarver.prefixLength(subnet.getSubnet())) {
+            throw new InvalidParameterValueException("The new offering must hand out the same family and prefix length as the subnet has");
+        }
+        NicVO nic = subnet.getNicId() == null ? null : nicDao.findById(subnet.getNicId());
+        VMInstanceVO vm = nic == null ? null : vmInstanceDao.findById(nic.getInstanceId());
+        Long zoneId = zoneOf(subnet, nic);
+        if (nic == null || vm == null || zoneId == null) {
+            throw new CloudRuntimeException("The subnet is not routed to a NIC of an Instance");
+        }
+        Account owner = accountManager.getAccount(vm.getAccountId());
+        if (target.getZoneId() != null && !target.getZoneId().equals(zoneId)) {
+            throw new InvalidParameterValueException("The Routed Subnet Offering is not available in the Instance's zone");
+        }
+        if (target.getDomainId() != null && !isVisibleInDomain(target.getDomainId(), owner.getDomainId())) {
+            throw new InvalidParameterValueException("The Routed Subnet Offering is not available in the owner's domain");
+        }
+        List<RoutedSubnetImpl> rows = rowsWithSubnet(subnet.getAddressFamily(), subnet.getSubnet());
+        if (target.getMode() == RoutedSubnetOffering.Mode.Static) {
+            if (rows.size() > 1) {
+                throw new InvalidParameterValueException("The subnet is routed to several Instances; release it down to one before switching to Static mode");
+            }
+            if (getAnnouncer(zoneId) == null) {
+                throw new InvalidParameterValueException("No route announcer is configured for the zone, so Static-mode offerings cannot be used");
+            }
+        } else {
+            ensureAsNumber(vm, owner, zoneId);
+        }
+        setOffering(subnet, target.getId());
+        if (target.getMode() == RoutedSubnetOffering.Mode.Static) {
+            announceSubnet(subnet, nic, zoneId);
+            releaseAsNumberIfUnused(vm.getId(), zoneId);
+        } else {
+            // The Instance should already announce; CloudStack's announcement goes now, and a
+            // slow endpoint is caught up by the reconciler, which withdraws what the database
+            // no longer wants announced.
+            withdrawSubnet(subnet, nic);
+        }
+        logger.info("Moved {} of {} from offering {} to {}", subnet.getSubnet(), vm, current == null ? "?" : current.getName(), target.getName());
+        return findByUuid(cmd.getId());
+    }
+
+    private void setOffering(RoutedSubnetImpl subnet, long offeringId) {
+        if (subnet.getV4() != null) {
+            Ipv4GuestSubnetNetworkMapVO row = subnet.getV4();
+            row.setOfferingId(offeringId);
+            ipv4MapDao.update(row.getId(), row);
+        } else {
+            Ipv6GuestPrefixSubnetNetworkMapVO row = subnet.getV6();
+            row.setOfferingId(offeringId);
+            row.setUpdated(new Date());
+            ipv6MapDao.update(row.getId(), row);
+        }
     }
 
     private void markReleasing(RoutedSubnetImpl subnet) {
@@ -1214,6 +1428,20 @@ public class RoutedSubnetManagerImpl extends ManagerBase implements RoutedSubnet
                 logger.info("Withdrew {} from {}: the database does not know it", extra, endpoint);
             } catch (RouteAnnouncementException | RuntimeException e) {
                 logger.warn("Withdrawing {} from {} failed: {}", extra, endpoint, e.getMessage());
+            }
+        }
+        // Records of subnets that are no longer Static (mode switch) or no longer exist: the
+        // route was withdrawn above as "extra"; the record goes with it.
+        Set<String> desiredKeys = new HashSet<>();
+        for (RoutedSubnetImpl subnet : desired.values()) {
+            desiredKeys.add(subnet.getAddressFamily() + ":" + subnet.getId());
+        }
+        for (RoutedSubnetImpl subnet : releasing) {
+            desiredKeys.add(subnet.getAddressFamily() + ":" + subnet.getId());
+        }
+        for (RoutedSubnetAnnouncementVO record : announcementDao.listByEndpoint(endpoint)) {
+            if (!desiredKeys.contains(record.getAddressFamily() + ":" + record.getSubnetMapId())) {
+                announcementDao.remove(record.getId());
             }
         }
         for (RoutedSubnetImpl subnet : releasing) {

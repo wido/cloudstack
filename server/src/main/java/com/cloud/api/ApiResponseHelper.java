@@ -5731,6 +5731,12 @@ public class ApiResponseHelper implements ResponseGenerator, ResourceIdSupport {
             NetworkVO network = ApiDBUtils.findNetworkById(asn.getNetworkId());
             response.setAssociatedNetworkId(network.getUuid());
             response.setAssociatedNetworkName(network.getName());
+        } else if (asn.getVmId() != null) {
+            VMInstanceVO vm = ApiDBUtils.findVMInstanceById(asn.getVmId());
+            if (vm != null) {
+                response.setVirtualMachineId(vm.getUuid());
+                response.setVirtualMachineName(vm.getHostName());
+            }
         }
         response.setCreated(asn.getCreated());
         response.setObjectName("asnumber");

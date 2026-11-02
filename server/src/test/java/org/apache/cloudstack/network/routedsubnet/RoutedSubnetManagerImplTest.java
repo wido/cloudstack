@@ -37,7 +37,10 @@ import org.apache.cloudstack.api.command.user.routedsubnet.ReleaseRoutedSubnetCm
 import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.datacenter.DataCenterIpv4GuestSubnetVO;
 import org.apache.cloudstack.datacenter.dao.DataCenterIpv4GuestSubnetDao;
+import org.apache.cloudstack.network.BgpPeerVO;
 import org.apache.cloudstack.network.Ipv4GuestSubnetNetworkMap;
+import org.apache.cloudstack.network.RoutedIpv4Manager;
+import org.apache.cloudstack.network.dao.BgpPeerDao;
 import org.apache.cloudstack.network.Ipv4GuestSubnetNetworkMapVO;
 import org.apache.cloudstack.network.dao.Ipv4GuestSubnetNetworkMapDao;
 import org.apache.cloudstack.network.routedsubnet.dao.RoutedSubnetAnnouncementDao;
@@ -56,6 +59,8 @@ import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import com.cloud.configuration.Resource.ResourceType;
+import com.cloud.dc.ASNumberVO;
+import com.cloud.dc.dao.ASNumberDao;
 import com.cloud.dc.dao.DataCenterDao;
 import com.cloud.dc.dao.DataCenterGuestIpv6PrefixDao;
 import com.cloud.domain.dao.DomainDao;
@@ -120,6 +125,12 @@ public class RoutedSubnetManagerImplTest {
     ResourceLimitService resourceLimitService;
     @Mock
     RouteAnnouncer announcer;
+    @Mock
+    ASNumberDao asNumberDao;
+    @Mock
+    BgpPeerDao bgpPeerDao;
+    @Mock
+    RoutedIpv4Manager routedIpv4Manager;
 
     private static final long ZONE_ID = 1L;
     private static final long ACCOUNT_ID = 2L;
@@ -153,6 +164,7 @@ public class RoutedSubnetManagerImplTest {
         when(nicDao.findById(NIC_ID)).thenReturn(nic);
 
         vm = Mockito.mock(VMInstanceVO.class);
+        when(vm.getId()).thenReturn(VM_ID);
         when(vm.getType()).thenReturn(VirtualMachine.Type.User);
         when(vm.getAccountId()).thenReturn(ACCOUNT_ID);
         when(vmInstanceDao.findById(VM_ID)).thenReturn(vm);
@@ -170,6 +182,8 @@ public class RoutedSubnetManagerImplTest {
         pool = new DataCenterIpv4GuestSubnetVO(ZONE_ID, "10.0.0.0/24", SubnetPoolPurpose.Instance);
         when(ipv4PoolDao.listNonDedicatedByDataCenterId(ZONE_ID, SubnetPoolPurpose.Instance)).thenReturn(Collections.singletonList(pool));
         when(ipv4MapDao.persist(any())).thenAnswer(inv -> inv.getArgument(0));
+        // the default offering is BGP mode: the Instance already holds an AS number
+        when(asNumberDao.findByZoneAndVmId(ZONE_ID, VM_ID)).thenReturn(Mockito.mock(ASNumberVO.class));
     }
 
     @After
@@ -346,5 +360,72 @@ public class RoutedSubnetManagerImplTest {
 
         Assert.assertEquals("10.0.0.0/29 BGP 02:00:00:00:00:01\n", manager.getRoutedSubnetsMetadata(VM_ID));
         Assert.assertEquals("", manager.getRoutedSubnetsMetadata(VM_ID + 1));
+    }
+
+    @Test
+    public void bgpModeTakesAnAsNumberForTheInstanceAndGivesItBackWithTheLastSubnet() throws Exception {
+        ASNumberVO free = new ASNumberVO();
+        when(asNumberDao.findByZoneAndVmId(ZONE_ID, VM_ID)).thenReturn(null);
+        when(asNumberDao.findOneByAllocationStateAndZone(ZONE_ID, false)).thenReturn(free);
+        when(ipv4MapDao.listByParent(anyLong())).thenReturn(new ArrayList<>());
+
+        manager.assignRoutedSubnet(assignCmd());
+
+        Assert.assertTrue(free.isAllocated());
+        Assert.assertEquals(Long.valueOf(VM_ID), free.getVmId());
+        Assert.assertEquals(Long.valueOf(ACCOUNT_ID), free.getAccountId());
+
+        // release the only BGP subnet: the AS number is free again
+        Ipv4GuestSubnetNetworkMapVO row = new Ipv4GuestSubnetNetworkMapVO(POOL_ID, ZONE_ID, "10.0.0.0/29", null, Ipv4GuestSubnetNetworkMap.State.Allocated);
+        row.setOfferingId(OFFERING_ID);
+        row.setAccountId(ACCOUNT_ID);
+        row.setNicId(NIC_ID);
+        when(ipv4MapDao.findByUuid("row")).thenReturn(row);
+        when(ipv4MapDao.listBySubnet("10.0.0.0/29")).thenReturn(Collections.singletonList(row));
+        when(nicDao.findByIdIncludingRemoved(NIC_ID)).thenReturn(nic);
+        when(nicDao.listByVmId(VM_ID)).thenReturn(Collections.singletonList(nic));
+        when(asNumberDao.findByZoneAndVmId(ZONE_ID, VM_ID)).thenReturn(free);
+        ReleaseRoutedSubnetCmd cmd = Mockito.mock(ReleaseRoutedSubnetCmd.class);
+        when(cmd.getId()).thenReturn("row");
+        when(cmd.getNicId()).thenReturn(null);
+
+        manager.releaseRoutedSubnet(cmd);
+
+        Assert.assertFalse(free.isAllocated());
+        Assert.assertNull(free.getVmId());
+    }
+
+    @Test(expected = InvalidParameterValueException.class)
+    public void bgpModeWithoutFreeAsNumberIsRefused() throws Exception {
+        when(asNumberDao.findByZoneAndVmId(ZONE_ID, VM_ID)).thenReturn(null);
+        when(asNumberDao.findOneByAllocationStateAndZone(ZONE_ID, false)).thenReturn(null);
+        manager.assignRoutedSubnet(assignCmd());
+    }
+
+    @Test
+    public void bgpMetadataListsTheAsNumberAndThePeers() {
+        when(nicDao.listByVmId(VM_ID)).thenReturn(Collections.singletonList(nic));
+        Ipv4GuestSubnetNetworkMapVO row = new Ipv4GuestSubnetNetworkMapVO(POOL_ID, ZONE_ID, "10.0.0.0/29", null, Ipv4GuestSubnetNetworkMap.State.Allocated);
+        row.setOfferingId(OFFERING_ID);
+        when(ipv4MapDao.listByNicId(NIC_ID)).thenReturn(Collections.singletonList(row));
+        ASNumberVO asn = Mockito.mock(ASNumberVO.class);
+        when(asn.getAsNumber()).thenReturn(65001L);
+        when(asNumberDao.findByZoneAndVmId(ZONE_ID, VM_ID)).thenReturn(asn);
+        when(accountDao.findByIdIncludingRemoved(ACCOUNT_ID)).thenReturn(owner);
+        when(routedIpv4Manager.getBgpPeerIdsForAccount(owner, ZONE_ID)).thenReturn(Arrays.asList(7L, 8L));
+        BgpPeerVO peer1 = Mockito.mock(BgpPeerVO.class);
+        when(peer1.getIp4Address()).thenReturn("192.0.2.1");
+        when(peer1.getIp6Address()).thenReturn("2001:db8::1");
+        when(peer1.getAsNumber()).thenReturn(65000L);
+        when(peer1.getPassword()).thenReturn("s3cret");
+        BgpPeerVO peer2 = Mockito.mock(BgpPeerVO.class);
+        when(peer2.getIp4Address()).thenReturn("192.0.2.2");
+        when(peer2.getAsNumber()).thenReturn(65000L);
+        when(bgpPeerDao.findById(7L)).thenReturn(peer1);
+        when(bgpPeerDao.findById(8L)).thenReturn(peer2);
+
+        String metadata = manager.getRoutedSubnetsBgpMetadata(VM_ID);
+
+        Assert.assertEquals("local_asn=65001\npeer=192.0.2.1 65000 s3cret\npeer=2001:db8::1 65000 s3cret\npeer=192.0.2.2 65000\n", metadata);
     }
 }

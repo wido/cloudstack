@@ -30,6 +30,7 @@ import org.apache.cloudstack.api.response.RoutedSubnetOfferingResponse;
 import org.apache.cloudstack.api.response.RoutedSubnetResponse;
 import org.apache.cloudstack.framework.config.ConfigKey;
 import org.apache.cloudstack.framework.config.Configurable;
+import org.apache.cloudstack.api.command.user.routedsubnet.UpdateRoutedSubnetCmd;
 
 import com.cloud.exception.ResourceAllocationException;
 import com.cloud.utils.Pair;
@@ -102,6 +103,9 @@ public interface RoutedSubnetService extends PluggableService, Configurable {
 
     RoutedSubnet reannounceRoutedSubnet(ReannounceRoutedSubnetCmd cmd);
 
+    /** Moves the subnet to another offering of the same family and size; the mode switch. */
+    RoutedSubnet updateRoutedSubnet(UpdateRoutedSubnetCmd cmd);
+
     RoutedSubnetResponse createRoutedSubnetResponse(RoutedSubnet subnet);
 
     // internal
@@ -123,4 +127,11 @@ public interface RoutedSubnetService extends PluggableService, Configurable {
      * NICs, "<cidr> <mode> <nic mac>", or an empty string when it has none.
      */
     String getRoutedSubnetsMetadata(long vmId);
+
+    /**
+     * The routed-subnets-bgp metadata file of an Instance with BGP-mode subnets: its AS number
+     * as "local_asn=<asn>" and one "peer=<address> <asn> [password]" line per peer it should
+     * talk to, or an empty string when it has no BGP-mode subnet.
+     */
+    String getRoutedSubnetsBgpMetadata(long vmId);
 }

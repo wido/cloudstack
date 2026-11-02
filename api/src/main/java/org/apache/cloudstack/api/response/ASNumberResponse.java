@@ -92,6 +92,14 @@ public class ASNumberResponse extends BaseResponse {
     @Param(description = "VPC Name")
     private String vpcName;
 
+    @SerializedName(ApiConstants.VIRTUAL_MACHINE_ID)
+    @Param(description = "the Instance the AS number is allocated to, for Instances announcing routed subnets themselves", since = "24.0.0")
+    private String virtualMachineId;
+
+    @SerializedName(ApiConstants.VIRTUAL_MACHINE_NAME)
+    @Param(description = "the name of the Instance the AS number is allocated to", since = "24.0.0")
+    private String virtualMachineName;
+
     @SerializedName(ApiConstants.CREATED)
     @Param(description = "Created Date")
     private Date created;
@@ -233,5 +241,13 @@ public class ASNumberResponse extends BaseResponse {
 
     public void setCreated(Date created) {
         this.created = created;
+    }
+
+    public void setVirtualMachineId(String virtualMachineId) {
+        this.virtualMachineId = virtualMachineId;
+    }
+
+    public void setVirtualMachineName(String virtualMachineName) {
+        this.virtualMachineName = virtualMachineName;
     }
 }

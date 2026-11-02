@@ -2956,6 +2956,10 @@ public class NetworkModelImpl extends ManagerBase implements NetworkModel, Confi
         String routedSubnets = routedSubnetService.getRoutedSubnetsMetadata(vmId);
         if (StringUtils.isNotEmpty(routedSubnets)) {
             vmData.add(new String[]{METATDATA_DIR, ROUTED_SUBNETS_FILE, routedSubnets});
+            String bgp = routedSubnetService.getRoutedSubnetsBgpMetadata(vmId);
+            if (StringUtils.isNotEmpty(bgp)) {
+                vmData.add(new String[]{METATDATA_DIR, ROUTED_SUBNETS_BGP_FILE, bgp});
+            }
         }
 
         addUserDataDetailsToCommand(vmData, userDataDetails);

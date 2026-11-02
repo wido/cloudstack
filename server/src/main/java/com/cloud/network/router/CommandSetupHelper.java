@@ -1372,6 +1372,10 @@ public class CommandSetupHelper {
         final String routedSubnets = _routedSubnetService.getRoutedSubnetsMetadata(vmId);
         if (routedSubnets != null && !routedSubnets.isEmpty()) {
             cmd.addVmData("metadata", NetworkModel.ROUTED_SUBNETS_FILE, routedSubnets);
+            final String bgp = _routedSubnetService.getRoutedSubnetsBgpMetadata(vmId);
+            if (bgp != null && !bgp.isEmpty()) {
+                cmd.addVmData("metadata", NetworkModel.ROUTED_SUBNETS_BGP_FILE, bgp);
+            }
         }
 
         addUserDataDetailsToCommand(cmd, userDataDetails);
