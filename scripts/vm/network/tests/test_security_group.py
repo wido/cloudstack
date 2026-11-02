@@ -383,6 +383,32 @@ class TestClassicRulesUnchanged(unittest.TestCase):
                 self.assertIn('--physdev-is-bridged', cmd, cmd)
 
 
+class TestIpsetType(unittest.TestCase):
+    """ Both per-Instance ipsets are hash:net: a set that only holds addresses cannot take a
+    routed subnet, and iptables matches an address in a hash:net set exactly as in an iphash
+    set, so the rules that use the sets need no change. """
+
+    def assert_sets_are_hash_net(self, captured):
+        creates = [c for c in captured if c.startswith('ipset -N ')]
+        self.assertEqual(2, len(creates), creates)
+        for cmd in creates:
+            self.assertIn(' hash:net family ', cmd, cmd)
+        self.assertTrue(any(c.endswith(' family inet') for c in creates), creates)
+        self.assertTrue(any(c.endswith(' family inet6') for c in creates), creates)
+
+    def test_classic_sets(self):
+        sg = load_script()
+        ok, captured = capture_default_network_rules(sg, "cloudbr0", direct_routed=False)
+        self.assertTrue(ok)
+        self.assert_sets_are_hash_net(captured)
+
+    def test_direct_routed_sets(self):
+        sg = load_script()
+        ok, captured = capture_default_network_rules(sg, "brdr-42", direct_routed=True)
+        self.assertTrue(ok)
+        self.assert_sets_are_hash_net(captured)
+
+
 class TestDirectRoutedRules(unittest.TestCase):
 
     def setUp(self):

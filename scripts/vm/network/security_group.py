@@ -444,7 +444,10 @@ def write_secip_log_for_vm (vmName, secIps, vmId):
     return result
 
 
-def create_ipset_forvm(ipsetname, type='iphash', family='inet'):
+def create_ipset_forvm(ipsetname, type='hash:net', family='inet'):
+    """ Creates the per-Instance ipset, replacing any existing one. Both families use hash:net
+    so the set can hold a whole subnet next to single addresses; a plain address is stored as
+    a /32 or /128 and matches exactly as it did in the iphash set. """
     result = True
     try:
         logging.debug("Creating ipset chain .... " + ipsetname)
@@ -682,7 +685,7 @@ def default_network_rules(vm_name, vm_id, vm_ip, vm_ip6, vm_mac, vif, brname, se
             logging.debug("failed to create ipset for rule %s", vmipsetName)
             return False
 
-        if not create_ipset_forvm(vmipsetName6, family='inet6', type='hash:net'):
+        if not create_ipset_forvm(vmipsetName6, family='inet6'):
            logging.debug("failed to create ivp6 ipset for rule %s", vmipsetName6)
            return False
 

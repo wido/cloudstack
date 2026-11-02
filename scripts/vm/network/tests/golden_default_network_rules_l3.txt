@@ -9,7 +9,7 @@ iptables -A i-2-7-VM-eg -j DROP
 ip6tables -A i-2-7-VM-eg -j DROP
 ipset -F i-2-7-VM
 ipset -X i-2-7-VM
-ipset -N i-2-7-VM iphash family inet
+ipset -N i-2-7-VM hash:net family inet
 ipset -F i-2-7-VM-6
 ipset -X i-2-7-VM-6
 ipset -N i-2-7-VM-6 hash:net family inet6
